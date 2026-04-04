@@ -1,14 +1,59 @@
 import type { SourceAdapter } from "./adapter";
 import { createDemoSourceAdapter } from "./demo-source";
+import { createEasuzSourceAdapter } from "./easuz/easuz-source";
+import { createEisSourceAdapter } from "./eis/eis-source";
+import { createFedresursSourceAdapter } from "./fedresurs/fedresurs-source";
+import { createFnsSourceAdapter } from "./fns/fns-source";
+import { createGistorgiSourceAdapter } from "./gistorgi/gistorgi-source";
 import { createFindTenderAdapter } from "./find-tender-source";
+import { createRnpSourceAdapter } from "./rnp/rnp-source";
 
 type AppConfig = (typeof import("../config"))["config"];
 type SourceResolverConfig = Pick<
   AppConfig,
-  "DEMO_SOURCE_BASE_URL" | "DEMO_SOURCE_ITEM_COUNT" | "ENABLED_SOURCES" | "FIND_TENDER_API_URL"
+  | "DEMO_SOURCE_BASE_URL"
+  | "DEMO_SOURCE_ITEM_COUNT"
+  | "EASUZ_BASE_URL"
+  | "EASUZ_MAX_ITEMS"
+  | "EASUZ_SEARCH_URL"
+  | "EASUZ_USER_AGENT"
+  | "EIS_BASE_URL"
+  | "EIS_MAX_ITEMS"
+  | "EIS_SEARCH_URL"
+  | "EIS_USER_AGENT"
+  | "ENABLED_SOURCES"
+  | "FEDRESURS_BASE_URL"
+  | "FEDRESURS_MAX_ITEMS"
+  | "FEDRESURS_SEARCH_URL"
+  | "FEDRESURS_USER_AGENT"
+  | "FNS_BASE_URL"
+  | "FNS_DOWNLOAD_EXTRACT"
+  | "FNS_LOOKUP_QUERIES"
+  | "FNS_MAX_ITEMS"
+  | "FNS_USER_AGENT"
+  | "GISTORGI_BASE_URL"
+  | "GISTORGI_MAX_ITEMS"
+  | "GISTORGI_SEARCH_URL"
+  | "GISTORGI_USER_AGENT"
+  | "FIND_TENDER_API_URL"
+  | "RNP_BASE_URL"
+  | "RNP_MAX_ITEMS"
+  | "RNP_SEARCH_URL"
+  | "RNP_USER_AGENT"
 >;
 
 type SourceFactory = () => SourceAdapter;
+
+export const SUPPORTED_SOURCE_CODES = [
+  "demo-source",
+  "find-tender",
+  "easuz",
+  "eis",
+  "rnp",
+  "fedresurs",
+  "fns",
+  "gistorgi"
+] as const;
 
 export type EnabledSourcesResolution = {
   requestedCodes: string[];
@@ -45,6 +90,49 @@ function createSourceFactories(config: SourceResolverConfig): Record<string, Sou
     "find-tender": () =>
       createFindTenderAdapter({
         apiUrl: config.FIND_TENDER_API_URL
+      }),
+    easuz: () =>
+      createEasuzSourceAdapter({
+        baseUrl: config.EASUZ_BASE_URL,
+        searchUrl: config.EASUZ_SEARCH_URL,
+        maxItems: config.EASUZ_MAX_ITEMS,
+        userAgent: config.EASUZ_USER_AGENT
+      }),
+    fedresurs: () =>
+      createFedresursSourceAdapter({
+        baseUrl: config.FEDRESURS_BASE_URL,
+        searchUrl: config.FEDRESURS_SEARCH_URL,
+        maxItems: config.FEDRESURS_MAX_ITEMS,
+        userAgent: config.FEDRESURS_USER_AGENT
+      }),
+    fns: () =>
+      createFnsSourceAdapter({
+        baseUrl: config.FNS_BASE_URL,
+        lookupQueries: config.FNS_LOOKUP_QUERIES,
+        maxItems: config.FNS_MAX_ITEMS,
+        userAgent: config.FNS_USER_AGENT,
+        downloadExtract: config.FNS_DOWNLOAD_EXTRACT
+      }),
+    gistorgi: () =>
+      createGistorgiSourceAdapter({
+        baseUrl: config.GISTORGI_BASE_URL,
+        searchUrl: config.GISTORGI_SEARCH_URL,
+        maxItems: config.GISTORGI_MAX_ITEMS,
+        userAgent: config.GISTORGI_USER_AGENT
+      }),
+    eis: () =>
+      createEisSourceAdapter({
+        baseUrl: config.EIS_BASE_URL,
+        searchUrl: config.EIS_SEARCH_URL,
+        maxItems: config.EIS_MAX_ITEMS,
+        userAgent: config.EIS_USER_AGENT
+      }),
+    rnp: () =>
+      createRnpSourceAdapter({
+        baseUrl: config.RNP_BASE_URL,
+        searchUrl: config.RNP_SEARCH_URL,
+        maxItems: config.RNP_MAX_ITEMS,
+        userAgent: config.RNP_USER_AGENT
       })
   };
 }

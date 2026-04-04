@@ -13,37 +13,42 @@ export class RawPublisher {
   async init(additionalQueues: string[] = []): Promise<void> {
     this.connection = await connect(this.rabbitmqUrl);
     this.channel = await this.connection.createChannel();
-    await this.channel.assertQueue(this.queueName, { durable: true });
+    const channel = this.getChannel();
+
+    await channel.assertQueue(this.queueName, { durable: true });
     await Promise.all(
-      additionalQueues.map((queueName) => this.channel?.assertQueue(queueName, { durable: true }))
+      additionalQueues.map((queueName) => channel.assertQueue(queueName, { durable: true }))
     );
   }
 
   async publish(event: RawSourceEvent): Promise<void> {
-    if (!this.channel) {
-      throw new Error("RawPublisher is not initialized");
-    }
-
-    this.channel.sendToQueue(this.queueName, Buffer.from(JSON.stringify(event)), {
-      contentType: "application/json",
-      persistent: true
-    });
+    this.publishJson(this.queueName, event);
   }
 
   async publishTo(queueName: string, payload: unknown): Promise<void> {
-    if (!this.channel) {
-      throw new Error("RawPublisher is not initialized");
-    }
+    const channel = this.getChannel();
 
-    await this.channel.assertQueue(queueName, { durable: true });
-    this.channel.sendToQueue(queueName, Buffer.from(JSON.stringify(payload)), {
-      contentType: "application/json",
-      persistent: true
-    });
+    await channel.assertQueue(queueName, { durable: true });
+    this.publishJson(queueName, payload);
   }
 
   async close(): Promise<void> {
     await this.channel?.close();
     await this.connection?.close();
+  }
+
+  private getChannel(): Channel {
+    if (!this.channel) {
+      throw new Error("RawPublisher is not initialized");
+    }
+
+    return this.channel;
+  }
+
+  private publishJson(queueName: string, payload: unknown) {
+    this.getChannel().sendToQueue(queueName, Buffer.from(JSON.stringify(payload)), {
+      contentType: "application/json",
+      persistent: true
+    });
   }
 }

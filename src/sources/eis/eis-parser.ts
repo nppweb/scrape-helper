@@ -1,0 +1,312 @@
+import { createHash } from "node:crypto";
+import { load, type CheerioAPI, type Cheerio } from "cheerio";
+import type { AnyNode } from "domhandler";
+import type { EisParsedNotice, EisSearchResultLink } from "./types";
+
+const SEARCH_LINK_PATTERNS = [
+  "/epz/order/notice/",
+  "/epz/order/extendedsearch/",
+  "/223/purchase/public/purchase/info/",
+  "/epz/contract/contractCard/common-info.html"
+];
+
+const TITLE_LABELS = [
+  "Объект закупки",
+  "Наименование объекта закупки",
+  "Наименование закупки",
+  "Наименование"
+];
+
+const DESCRIPTION_LABELS = [
+  "Описание объекта закупки",
+  "Описание",
+  "Краткое описание"
+];
+
+const CUSTOMER_LABELS = [
+  "Заказчик",
+  "Организация, осуществляющая размещение",
+  "Наименование организации"
+];
+
+const STATUS_LABELS = ["Статус", "Этап закупки", "Состояние закупки"];
+
+const PUBLISHED_AT_LABELS = ["Размещено", "Дата размещения", "Опубликовано"];
+
+const DEADLINE_LABELS = [
+  "Окончание подачи заявок",
+  "Дата и время окончания подачи заявок",
+  "Дата окончания подачи заявок"
+];
+
+const PRICE_LABELS = [
+  "Начальная (максимальная) цена контракта",
+  "Начальная цена",
+  "Начальная цена договора",
+  "Максимальное значение цены контракта"
+];
+
+const CURRENCY_LABELS = ["Валюта", "Код валюты"];
+
+const REGION_LABELS = ["Субъект РФ", "Регион", "Место поставки товара, выполнения работы или оказания услуги"];
+
+export function parseEisSearchResults(
+  html: string,
+  options: { baseUrl: string; maxItems: number }
+): EisSearchResultLink[] {
+  const $ = load(html);
+  const links = new Map<string, EisSearchResultLink>();
+
+  $("a[href]").each((_index, element) => {
+    const href = $(element).attr("href");
+    if (!href) {
+      return;
+    }
+
+    const resolvedUrl = resolveUrl(options.baseUrl, href);
+    if (!resolvedUrl || !isLikelyEisNoticeUrl(resolvedUrl)) {
+      return;
+    }
+
+    const externalId = extractRegistrationNumber(resolvedUrl) ?? extractRegistrationNumber($(element).text());
+    if (!externalId || links.has(externalId)) {
+      return;
+    }
+
+    links.set(externalId, {
+      externalId,
+      detailUrl: resolvedUrl,
+      title: cleanText($(element).text()) || undefined
+    });
+  });
+
+  return Array.from(links.values()).slice(0, options.maxItems);
+}
+
+export function parseEisNoticePage(html: string, detailUrl: string): EisParsedNotice {
+  const $ = load(html);
+  const externalId =
+    extractRegistrationNumber(detailUrl) ??
+    findFirstValue($, ["Реестровый номер", "Номер закупки"]) ??
+    readPageTitle($) ??
+    "unknown";
+
+  const title =
+    findFirstValue($, TITLE_LABELS) ??
+    readPrimaryHeading($) ??
+    findMetaContent($, "og:title") ??
+    findMetaContent($, "twitter:title");
+
+  const description =
+    findFirstValue($, DESCRIPTION_LABELS) ??
+    findMetaContent($, "description") ??
+    undefined;
+
+  const customerName = findFirstValue($, CUSTOMER_LABELS) ?? undefined;
+  const status = findFirstValue($, STATUS_LABELS) ?? undefined;
+  const publishedAt = parseRussianDateTime(findFirstValue($, PUBLISHED_AT_LABELS));
+  const applicationDeadline = parseRussianDateTime(findFirstValue($, DEADLINE_LABELS));
+  const priceText = findFirstValue($, PRICE_LABELS);
+  const initialPrice = parseRussianAmount(priceText);
+  const currency = normalizeCurrency(findFirstValue($, CURRENCY_LABELS) ?? priceText);
+  const region = findFirstValue($, REGION_LABELS) ?? undefined;
+
+  return {
+    externalId,
+    externalUrl: detailUrl,
+    sourcePageUrl: detailUrl,
+    sourceName: "eis",
+    sourceType: "procurement",
+    title,
+    description,
+    customerName,
+    status,
+    publishedAt,
+    applicationDeadline,
+    initialPrice,
+    currency,
+    region,
+    checksum: checksumHtml(html)
+  };
+}
+
+function findFirstValue($: CheerioAPI, labels: string[]): string | undefined {
+  for (const label of labels) {
+    const value = findValueByLabel($, label);
+    if (value) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function findValueByLabel($: CheerioAPI, label: string): string | undefined {
+  const normalizedLabel = normalizeText(label);
+  const candidates = $("th, td, dt, dd, div, span, p, strong, b, label").toArray();
+
+  for (const element of candidates) {
+    const ownText = cleanText($(element).text());
+    if (!ownText) {
+      continue;
+    }
+
+    const normalizedOwnText = normalizeText(ownText);
+    if (
+      normalizedOwnText !== normalizedLabel &&
+      !normalizedOwnText.startsWith(`${normalizedLabel}:`) &&
+      !normalizedOwnText.includes(` ${normalizedLabel} `)
+    ) {
+      continue;
+    }
+
+    const relatedValues = [
+      getNeighborValue($, $(element)),
+      getValueFromSameRow($, $(element)),
+      extractValueAfterColon(ownText)
+    ];
+
+    for (const candidate of relatedValues) {
+      const value = cleanText(candidate);
+      if (value && normalizeText(value) !== normalizedLabel) {
+        return value;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function getNeighborValue($: CheerioAPI, element: Cheerio<AnyNode>): string | undefined {
+  const next = element.nextAll().toArray().find((node) => cleanText($(node).text()));
+  if (next) {
+    return $(next).text();
+  }
+
+  const parent = element.parent();
+  const sibling = parent.nextAll().toArray().find((node) => cleanText($(node).text()));
+  if (sibling) {
+    return $(sibling).text();
+  }
+
+  return undefined;
+}
+
+function getValueFromSameRow($: CheerioAPI, element: Cheerio<AnyNode>): string | undefined {
+  const row = element.closest("tr");
+  if (row.length) {
+    const cells = row.find("td").toArray().map((cell) => cleanText($(cell).text())).filter(Boolean);
+    if (cells.length > 1) {
+      return cells[cells.length - 1];
+    }
+  }
+
+  const wrapper = element.closest("dl, .cardMainInfo, .common-info__content, .row");
+  if (wrapper.length) {
+    const text = cleanText(wrapper.text());
+    if (text) {
+      return text.replace(cleanText(element.text()), "").trim();
+    }
+  }
+
+  return undefined;
+}
+
+function extractValueAfterColon(text: string): string | undefined {
+  const parts = text.split(":");
+  if (parts.length < 2) {
+    return undefined;
+  }
+
+  return parts.slice(1).join(":");
+}
+
+function readPrimaryHeading($: CheerioAPI): string | undefined {
+  const heading = $("h1, h2").first().text();
+  return cleanText(heading) || undefined;
+}
+
+function readPageTitle($: CheerioAPI): string | undefined {
+  const title = $("title").first().text();
+  return cleanText(title) || undefined;
+}
+
+function findMetaContent($: CheerioAPI, name: string): string | undefined {
+  const element =
+    $(`meta[name="${name}"]`).attr("content") ?? $(`meta[property="${name}"]`).attr("content");
+
+  return cleanText(element) || undefined;
+}
+
+function normalizeText(value: string): string {
+  return value.replace(/\s+/g, " ").replace(/[:;]/g, "").trim().toLowerCase();
+}
+
+function cleanText(value: string | undefined | null): string {
+  return (value ?? "").replace(/\s+/g, " ").replace(/\u00a0/g, " ").trim();
+}
+
+function resolveUrl(baseUrl: string, href: string): string | null {
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+function isLikelyEisNoticeUrl(url: string): boolean {
+  return SEARCH_LINK_PATTERNS.some((pattern) => url.includes(pattern)) && url.includes("regNumber=");
+}
+
+function extractRegistrationNumber(value: string): string | undefined {
+  const match = value.match(/regNumber=([0-9]+)/i) ?? value.match(/\b([0-9]{11,20})\b/);
+  return match?.[1];
+}
+
+function parseRussianDateTime(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const match = value.match(
+    /\b(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?\b/
+  );
+
+  if (!match) {
+    return undefined;
+  }
+
+  const [, day, month, year, hours = "00", minutes = "00", seconds = "00"] = match;
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+03:00`;
+}
+
+function parseRussianAmount(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value
+    .replace(/[^\d,.\-]/g, "")
+    .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : undefined;
+}
+
+function normalizeCurrency(value: string | undefined): string | undefined {
+  const normalized = cleanText(value).toUpperCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (normalized.includes("RUB") || normalized.includes("РУБ") || normalized.includes("₽")) {
+    return "RUB";
+  }
+
+  return normalized.split(/\s+/)[0];
+}
+
+function checksumHtml(html: string): string {
+  return createHash("sha256").update(html).digest("hex");
+}

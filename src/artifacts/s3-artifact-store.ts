@@ -4,6 +4,7 @@ import type { ArtifactDraft, ArtifactRef } from "../types";
 
 export class S3ArtifactStore {
   private readonly client: S3Client;
+  private readonly endpointUrl: URL;
 
   constructor(
     private readonly bucket: string,
@@ -11,8 +12,9 @@ export class S3ArtifactStore {
     region: string,
     accessKeyId: string,
     secretAccessKey: string,
-    forcePathStyle: boolean
+    private readonly forcePathStyle: boolean
   ) {
+    this.endpointUrl = new URL(endpoint);
     this.client = new S3Client({
       endpoint,
       region,
@@ -60,4 +62,25 @@ export class S3ArtifactStore {
       metadata: artifact.metadata
     };
   }
+
+  resolveObjectUrl(artifact: Pick<ArtifactRef, "bucket" | "objectKey">): string {
+    const url = new URL(this.endpointUrl.toString());
+    const objectPath = artifact.objectKey
+      .split("/")
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+
+    if (this.forcePathStyle) {
+      url.pathname = `${trimTrailingSlash(url.pathname)}/${encodeURIComponent(artifact.bucket)}/${objectPath}`;
+      return url.toString();
+    }
+
+    url.hostname = `${artifact.bucket}.${url.hostname}`;
+    url.pathname = `${trimTrailingSlash(url.pathname)}/${objectPath}`;
+    return url.toString();
+  }
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
 }

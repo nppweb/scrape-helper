@@ -9,7 +9,7 @@ import { createRawEventValidator } from "./contracts/raw-event-validator";
 import { RawPublisher } from "./messaging/raw-publisher";
 import type { SourceAdapter } from "./sources/adapter";
 import type { ArtifactDraft, ArtifactRef, RawSourceEvent } from "./types";
-import { resolveEnabledSources } from "./sources";
+import { resolveEnabledSources, SUPPORTED_SOURCE_CODES } from "./sources";
 import { withRetries } from "./utils/retry";
 
 const publisher = new RawPublisher(config.RABBITMQ_URL, config.QUEUE_RAW_EVENT);
@@ -118,7 +118,7 @@ async function bootstrap(): Promise<void> {
     logger.warn(
       {
         unknownSources: resolvedSources.unknownCodes,
-        availableSources: ["demo-source", "find-tender"]
+        availableSources: SUPPORTED_SOURCE_CODES
       },
       "unknown sources requested via ENABLED_SOURCES"
     );
@@ -249,7 +249,7 @@ async function processCollectedRecord(input: {
       payloadVersion: "v1",
       artifacts,
       metadata: input.record.metadata,
-      raw: input.record.raw
+      raw: enrichRawPayload(input.record.raw, input.record.url, input.collectedAt, artifacts)
     };
 
     validateRaw(event);
@@ -279,6 +279,23 @@ async function processCollectedRecord(input: {
       );
     }
   }
+}
+
+function enrichRawPayload(
+  raw: Record<string, unknown>,
+  sourcePageUrl: string,
+  collectedAt: string,
+  artifacts: ArtifactRef[]
+): Record<string, unknown> {
+  const primaryArtifact = artifacts[0];
+
+  return {
+    ...raw,
+    sourcePageUrl: typeof raw.sourcePageUrl === "string" ? raw.sourcePageUrl : sourcePageUrl,
+    collectedAt: typeof raw.collectedAt === "string" ? raw.collectedAt : collectedAt,
+    rawArtifactUrl: primaryArtifact ? artifactStore.resolveObjectUrl(primaryArtifact) : raw.rawArtifactUrl,
+    checksum: primaryArtifact?.checksum ?? raw.checksum
+  };
 }
 
 async function uploadArtifactsSafely(

@@ -42,6 +42,59 @@ const envSchema = z.object({
   FIND_TENDER_API_URL: z
     .string()
     .default("https://www.find-tender.service.gov.uk/api/1.0/ocdsReleasePackages?limit=5"),
+  EASUZ_BASE_URL: z.string().url().default("https://easuz.mosreg.ru"),
+  EASUZ_SEARCH_URL: z.string().url().default("https://easuz.mosreg.ru/tenders"),
+  EASUZ_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  EASUZ_USER_AGENT: z
+    .string()
+    .default("AIMSORA procurement monitor/1.0 (+https://example.local/aimsora)"),
+  FNS_BASE_URL: z.string().url().default("https://egrul.nalog.ru"),
+  FNS_LOOKUP_QUERIES: z
+    .string()
+    .default("")
+    .transform((value) => parseStringList(value, [])),
+  FNS_MAX_ITEMS: z.coerce.number().int().positive().max(10).default(3),
+  FNS_USER_AGENT: z
+    .string()
+    .default("AIMSORA procurement monitor/1.0 (+https://example.local/aimsora)"),
+  FNS_DOWNLOAD_EXTRACT: z
+    .string()
+    .optional()
+    .transform((value) => parseBoolean(value, true)),
+  GISTORGI_BASE_URL: z.string().url().default("https://torgi.gov.ru"),
+  GISTORGI_SEARCH_URL: z.string().url().default("https://torgi.gov.ru/new/public/lots/search"),
+  GISTORGI_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  GISTORGI_USER_AGENT: z
+    .string()
+    .default("AIMSORA procurement monitor/1.0 (+https://example.local/aimsora)"),
+  FEDRESURS_BASE_URL: z.string().url().default("https://bankrot.fedresurs.ru"),
+  FEDRESURS_SEARCH_URL: z.string().url().default("https://bankrot.fedresurs.ru/Messages.aspx"),
+  FEDRESURS_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  FEDRESURS_USER_AGENT: z
+    .string()
+    .default("AIMSORA procurement monitor/1.0 (+https://example.local/aimsora)"),
+  EIS_BASE_URL: z.string().url().default("https://zakupki.gov.ru"),
+  EIS_SEARCH_URL: z
+    .string()
+    .url()
+    .default(
+      "https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=&morphology=on&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false"
+    ),
+  EIS_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  EIS_USER_AGENT: z
+    .string()
+    .default("AIMSORA procurement monitor/1.0 (+https://example.local/aimsora)"),
+  RNP_BASE_URL: z.string().url().default("https://zakupki.gov.ru"),
+  RNP_SEARCH_URL: z
+    .string()
+    .url()
+    .default(
+      "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?searchString=&recordsPerPage=_10"
+    ),
+  RNP_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  RNP_USER_AGENT: z
+    .string()
+    .default("AIMSORA procurement monitor/1.0 (+https://example.local/aimsora)"),
   REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
   RETRY_ATTEMPTS: z.coerce.number().int().positive().default(3),
   RETRY_BASE_DELAY_MS: z.coerce.number().int().positive().default(1000),
