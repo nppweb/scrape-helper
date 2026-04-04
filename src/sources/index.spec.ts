@@ -5,8 +5,6 @@ describe("resolveEnabledSources", () => {
   it("keeps known sources from ENABLED_SOURCES", () => {
     const resolution = resolveEnabledSources({
       ENABLED_SOURCES: [
-        "demo-source",
-        "find-tender",
         "easuz",
         "eis",
         "rnp",
@@ -14,41 +12,36 @@ describe("resolveEnabledSources", () => {
         "fns",
         "gistorgi"
       ],
-      DEMO_SOURCE_BASE_URL: "https://demo-source.local",
-      DEMO_SOURCE_ITEM_COUNT: 2,
-      FIND_TENDER_API_URL: "https://example.test/api",
       EASUZ_BASE_URL: "https://easuz.mosreg.ru",
       EASUZ_SEARCH_URL: "https://easuz.mosreg.ru/tenders",
       EASUZ_MAX_ITEMS: 5,
-      EASUZ_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      EASUZ_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       GISTORGI_BASE_URL: "https://torgi.gov.ru",
       GISTORGI_SEARCH_URL: "https://torgi.gov.ru/new/public/lots/search",
       GISTORGI_MAX_ITEMS: 5,
-      GISTORGI_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      GISTORGI_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       FNS_BASE_URL: "https://egrul.nalog.ru",
       FNS_LOOKUP_QUERIES: ["7707083893"],
       FNS_MAX_ITEMS: 2,
-      FNS_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      FNS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       FNS_DOWNLOAD_EXTRACT: true,
       FEDRESURS_BASE_URL: "https://bankrot.fedresurs.ru",
       FEDRESURS_SEARCH_URL: "https://bankrot.fedresurs.ru/Messages.aspx",
       FEDRESURS_MAX_ITEMS: 5,
-      FEDRESURS_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      FEDRESURS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       EIS_BASE_URL: "https://zakupki.gov.ru",
       EIS_SEARCH_URL:
         "https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=&morphology=on&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false",
       EIS_MAX_ITEMS: 5,
-      EIS_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      EIS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       RNP_BASE_URL: "https://zakupki.gov.ru",
       RNP_SEARCH_URL:
         "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?searchString=&recordsPerPage=_10",
       RNP_MAX_ITEMS: 5,
-      RNP_USER_AGENT: "AIMSORA/1.0 (+https://example.test)"
+      RNP_USER_AGENT: "NPPWEB/1.0 (+https://example.test)"
     });
 
     expect(resolution.loadedCodes).toEqual([
-      "demo-source",
-      "find-tender",
       "easuz",
       "eis",
       "rnp",
@@ -60,43 +53,41 @@ describe("resolveEnabledSources", () => {
     expect(resolution.fallbackApplied).toBe(false);
   });
 
-  it("falls back to demo-source when env contains only unknown values", () => {
+  it("returns no adapters when env contains only unknown values", () => {
     const resolution = resolveEnabledSources({
       ENABLED_SOURCES: ["unknown-source"],
-      DEMO_SOURCE_BASE_URL: "https://demo-source.local",
-      DEMO_SOURCE_ITEM_COUNT: 2,
-      FIND_TENDER_API_URL: "https://example.test/api",
       EASUZ_BASE_URL: "https://easuz.mosreg.ru",
       EASUZ_SEARCH_URL: "https://easuz.mosreg.ru/tenders",
       EASUZ_MAX_ITEMS: 5,
-      EASUZ_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      EASUZ_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       GISTORGI_BASE_URL: "https://torgi.gov.ru",
       GISTORGI_SEARCH_URL: "https://torgi.gov.ru/new/public/lots/search",
       GISTORGI_MAX_ITEMS: 5,
-      GISTORGI_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      GISTORGI_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       FNS_BASE_URL: "https://egrul.nalog.ru",
       FNS_LOOKUP_QUERIES: ["7707083893"],
       FNS_MAX_ITEMS: 2,
-      FNS_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      FNS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       FNS_DOWNLOAD_EXTRACT: true,
       FEDRESURS_BASE_URL: "https://bankrot.fedresurs.ru",
       FEDRESURS_SEARCH_URL: "https://bankrot.fedresurs.ru/Messages.aspx",
       FEDRESURS_MAX_ITEMS: 5,
-      FEDRESURS_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      FEDRESURS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       EIS_BASE_URL: "https://zakupki.gov.ru",
       EIS_SEARCH_URL:
         "https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=&morphology=on&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false",
       EIS_MAX_ITEMS: 5,
-      EIS_USER_AGENT: "AIMSORA/1.0 (+https://example.test)",
+      EIS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       RNP_BASE_URL: "https://zakupki.gov.ru",
       RNP_SEARCH_URL:
         "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?searchString=&recordsPerPage=_10",
       RNP_MAX_ITEMS: 5,
-      RNP_USER_AGENT: "AIMSORA/1.0 (+https://example.test)"
+      RNP_USER_AGENT: "NPPWEB/1.0 (+https://example.test)"
     });
 
-    expect(resolution.loadedCodes).toEqual(["demo-source"]);
+    expect(resolution.loadedCodes).toEqual([]);
+    expect(resolution.adapters).toEqual([]);
     expect(resolution.unknownCodes).toEqual(["unknown-source"]);
-    expect(resolution.fallbackApplied).toBe(true);
+    expect(resolution.fallbackApplied).toBe(false);
   });
 });

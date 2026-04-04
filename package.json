@@ -2,7 +2,7 @@
   "name": "scraper-service",
   "version": "1.0.0",
   "private": true,
-  "description": "Production-ready scraping platform for AIMSORA with pluggable source adapters and artifact persistence.",
+  "description": "Production-ready scraping platform for NPPWEB with pluggable source adapters and artifact persistence.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",

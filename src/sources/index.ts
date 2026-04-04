@@ -1,18 +1,14 @@
 import type { SourceAdapter } from "./adapter";
-import { createDemoSourceAdapter } from "./demo-source";
 import { createEasuzSourceAdapter } from "./easuz/easuz-source";
 import { createEisSourceAdapter } from "./eis/eis-source";
 import { createFedresursSourceAdapter } from "./fedresurs/fedresurs-source";
 import { createFnsSourceAdapter } from "./fns/fns-source";
 import { createGistorgiSourceAdapter } from "./gistorgi/gistorgi-source";
-import { createFindTenderAdapter } from "./find-tender-source";
 import { createRnpSourceAdapter } from "./rnp/rnp-source";
 
 type AppConfig = (typeof import("../config"))["config"];
 type SourceResolverConfig = Pick<
   AppConfig,
-  | "DEMO_SOURCE_BASE_URL"
-  | "DEMO_SOURCE_ITEM_COUNT"
   | "EASUZ_BASE_URL"
   | "EASUZ_MAX_ITEMS"
   | "EASUZ_SEARCH_URL"
@@ -35,7 +31,6 @@ type SourceResolverConfig = Pick<
   | "GISTORGI_MAX_ITEMS"
   | "GISTORGI_SEARCH_URL"
   | "GISTORGI_USER_AGENT"
-  | "FIND_TENDER_API_URL"
   | "RNP_BASE_URL"
   | "RNP_MAX_ITEMS"
   | "RNP_SEARCH_URL"
@@ -45,8 +40,6 @@ type SourceResolverConfig = Pick<
 type SourceFactory = () => SourceAdapter;
 
 export const SUPPORTED_SOURCE_CODES = [
-  "demo-source",
-  "find-tender",
   "easuz",
   "eis",
   "rnp",
@@ -68,8 +61,8 @@ export function resolveEnabledSources(config: SourceResolverConfig): EnabledSour
   const requestedCodes = config.ENABLED_SOURCES;
   const knownCodes = requestedCodes.filter((code) => code in factories);
   const unknownCodes = requestedCodes.filter((code) => !(code in factories));
-  const fallbackApplied = knownCodes.length === 0;
-  const loadedCodes = fallbackApplied ? ["demo-source"] : knownCodes;
+  const fallbackApplied = false;
+  const loadedCodes = knownCodes;
 
   return {
     requestedCodes,
@@ -82,15 +75,6 @@ export function resolveEnabledSources(config: SourceResolverConfig): EnabledSour
 
 function createSourceFactories(config: SourceResolverConfig): Record<string, SourceFactory> {
   return {
-    "demo-source": () =>
-      createDemoSourceAdapter({
-        baseUrl: config.DEMO_SOURCE_BASE_URL,
-        itemCount: config.DEMO_SOURCE_ITEM_COUNT
-      }),
-    "find-tender": () =>
-      createFindTenderAdapter({
-        apiUrl: config.FIND_TENDER_API_URL
-      }),
     easuz: () =>
       createEasuzSourceAdapter({
         baseUrl: config.EASUZ_BASE_URL,
