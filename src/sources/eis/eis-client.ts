@@ -12,22 +12,47 @@ export class EisClient {
     const links = new Map<string, EisSearchResultLink>();
 
     for (const query of buildEisSearchQueries(this.config.searchTerms)) {
-      const searchUrl = buildEisSearchUrl(this.config.searchUrl, query);
-      const html = await this.fetchText(searchUrl, logger, requestTimeoutMs, "search page");
-      const parsedLinks = parseEisSearchResults(html, {
-        baseUrl: this.config.baseUrl,
-        maxItems: this.config.maxItems
-      });
+      for (let pageNumber = 1; pageNumber <= this.config.maxPages; pageNumber += 1) {
+        const searchUrl = buildEisSearchUrl(this.config.searchUrl, {
+          query,
+          pageNumber,
+          publishDateFrom: this.config.publishDateFrom,
+          recordsPerPage: this.config.recordsPerPage
+        });
+        const html = await this.fetchText(searchUrl, logger, requestTimeoutMs, "search page");
+        const parsedLinks = parseEisSearchResults(html, {
+          baseUrl: this.config.baseUrl,
+          maxItems: this.config.maxItems,
+          detailLinkPatterns: this.config.detailLinkPatterns
+        });
 
-      for (const link of parsedLinks) {
-        if (links.has(link.externalId)) {
-          continue;
+        for (const link of parsedLinks) {
+          const candidate = {
+            ...link,
+            matchedQuery: query || undefined
+          };
+          const existing = links.get(link.externalId);
+
+          if (
+            !existing ||
+            (!existing.matchedQuery && candidate.matchedQuery) ||
+            (existing.matchedQuery === candidate.matchedQuery &&
+              candidate.detailUrl.length < existing.detailUrl.length)
+          ) {
+            links.set(link.externalId, candidate);
+          }
+
+          if (links.size >= this.config.maxItems) {
+            return Array.from(links.values());
+          }
         }
 
-        links.set(link.externalId, {
-          ...link,
-          matchedQuery: query || undefined
-        });
+        if (
+          parsedLinks.length === 0 ||
+          parsedLinks.length < Math.min(this.config.recordsPerPage, this.config.maxItems)
+        ) {
+          break;
+        }
       }
     }
 
@@ -37,12 +62,13 @@ export class EisClient {
   async fetchNotice(
     detailUrl: string,
     logger: Logger,
-    requestTimeoutMs: number
+    requestTimeoutMs: number,
+    options?: { fallbackExternalId?: string }
   ): Promise<{ html: string; notice: EisParsedNotice }> {
     const html = await this.fetchText(detailUrl, logger, requestTimeoutMs, "notice page");
     return {
       html,
-      notice: parseEisNoticePage(html, detailUrl)
+      notice: parseEisNoticePage(html, detailUrl, options)
     };
   }
 
@@ -103,7 +129,7 @@ export class EisClient {
 }
 
 function buildEisSearchQueries(searchTerms: string[]): string[] {
-  const queries = [""];
+  const queries = searchTerms.length > 0 ? [] : [""];
 
   for (const term of searchTerms) {
     if (!term || queries.includes(term)) {
@@ -116,8 +142,35 @@ function buildEisSearchQueries(searchTerms: string[]): string[] {
   return queries;
 }
 
-function buildEisSearchUrl(baseSearchUrl: string, query: string): string {
+function buildEisSearchUrl(
+  baseSearchUrl: string,
+  options: {
+    query: string;
+    pageNumber: number;
+    publishDateFrom?: string;
+    recordsPerPage: number;
+  }
+): string {
   const url = new URL(baseSearchUrl);
-  url.searchParams.set("searchString", query);
+  url.searchParams.set("searchString", options.query);
+  url.searchParams.set("pageNumber", String(options.pageNumber));
+  url.searchParams.set("recordsPerPage", `_${options.recordsPerPage}`);
+  url.searchParams.set("sortDirection", "false");
+
+  if (options.publishDateFrom) {
+    url.searchParams.set("publishDateFrom", formatEisDate(options.publishDateFrom));
+  }
+
   return url.toString();
+}
+
+function formatEisDate(value: string): string {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+  if (!match) {
+    return trimmed;
+  }
+
+  return `${match[3]}.${match[2]}.${match[1]}`;
 }

@@ -46,9 +46,18 @@ const envSchema = z.object({
     .transform((value) => parseBoolean(value, true)),
   ENABLED_SOURCES: z
     .string()
-    .default("easuz,eis,rnp,fedresurs,fns,gistorgi")
+    .default("easuz,eis,eis_contracts,eis_contracts_223,rnp,fedresurs,fns,gistorgi")
     .transform((value) =>
-      parseStringList(value, ["easuz", "eis", "rnp", "fedresurs", "fns", "gistorgi"])
+      parseStringList(value, [
+        "easuz",
+        "eis",
+        "eis_contracts",
+        "eis_contracts_223",
+        "rnp",
+        "fedresurs",
+        "fns",
+        "gistorgi"
+      ])
     ),
   EASUZ_BASE_URL: z.string().url().default("https://easuz.mosreg.ru"),
   EASUZ_SEARCH_URL: z.string().url().default("https://easuz.mosreg.ru/tenders"),
@@ -91,10 +100,49 @@ const envSchema = z.object({
   EIS_SEARCH_TERMS: z
     .string()
     .default(
-      "Концерн Росэнергоатом,Росатом,Балаковская атомная станция,Калининская атомная станция,Ленинградская атомная станция"
+      [
+        "АО Концерн Росэнергоатом",
+        "Концерн Росэнергоатом",
+        "Российский концерн по производству электрической и тепловой энергии на атомных станциях",
+        "Балаковская АЭС-АВТО",
+        "Балаковская атомная станция",
+        "Белоярская АЭС",
+        "Белоярская атомная станция",
+        "Билибинская АЭС",
+        "Билибинская атомная станция",
+        "Калининская АЭС-СЕРВИС",
+        "Калининская атомная станция",
+        "Кольская АЭС",
+        "Кольская атомная станция",
+        "Курская АЭС-СЕРВИС",
+        "Курская атомная станция",
+        "Ленинградская АЭС-АВТО",
+        "Ленинградская атомная станция",
+        "Нововоронежская АЭС",
+        "Нововоронежская атомная станция",
+        "Ростовская АЭС",
+        "Ростовская атомная станция",
+        "Смоленская АЭС-СЕРВИС",
+        "Смоленская атомная станция"
+      ].join(",")
     )
     .transform((value) => parseStringList(value, [])),
-  EIS_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  EIS_MAX_ITEMS: z.coerce.number().int().positive().max(500).default(120),
+  EIS_MAX_PAGES: z.coerce.number().int().positive().max(100).default(20),
+  EIS_RECORDS_PER_PAGE: z.coerce.number().int().positive().max(50).default(20),
+  EIS_PUBLISH_DATE_FROM: z.string().default("2025-01-01"),
+  EIS_CONTRACTS_SEARCH_URL: z
+    .string()
+    .url()
+    .default("https://zakupki.gov.ru/epz/contract/search/results.html?searchString=&recordsPerPage=_10"),
+  EIS_CONTRACTS_MAX_ITEMS: z.coerce.number().int().positive().max(500).default(180),
+  EIS_CONTRACTS_223_SEARCH_URL: z
+    .string()
+    .url()
+    .default(
+      "https://zakupki.gov.ru/epz/contractfz223/search/results.html?searchString=&recordsPerPage=_10"
+    ),
+  EIS_CONTRACTS_223_MAX_ITEMS: z.coerce.number().int().positive().max(500).default(240),
   EIS_USER_AGENT: z
     .string()
     .default("NPPWEB procurement monitor/1.0 (+https://example.local/nppweb)"),

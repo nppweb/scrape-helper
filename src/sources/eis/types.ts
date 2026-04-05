@@ -1,5 +1,9 @@
 export type EisClientConfig = {
   baseUrl: string;
+  detailLinkPatterns: string[];
+  maxPages: number;
+  publishDateFrom?: string;
+  recordsPerPage: number;
   searchUrl: string;
   searchTerms: string[];
   maxItems: number;
@@ -17,11 +21,12 @@ export type EisParsedNotice = {
   externalId: string;
   externalUrl: string;
   sourcePageUrl: string;
-  sourceName: "eis";
-  sourceType: "procurement";
+  sourceName: string;
+  sourceType: "procurement" | "contract";
   title?: string;
   description?: string;
   customerName?: string;
+  supplierName?: string;
   status?: string;
   publishedAt?: string;
   applicationDeadline?: string;

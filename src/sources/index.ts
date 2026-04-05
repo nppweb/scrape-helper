@@ -14,7 +14,14 @@ type SourceResolverConfig = Pick<
   | "EASUZ_SEARCH_URL"
   | "EASUZ_USER_AGENT"
   | "EIS_BASE_URL"
+  | "EIS_CONTRACTS_223_MAX_ITEMS"
+  | "EIS_CONTRACTS_223_SEARCH_URL"
+  | "EIS_CONTRACTS_MAX_ITEMS"
+  | "EIS_CONTRACTS_SEARCH_URL"
   | "EIS_MAX_ITEMS"
+  | "EIS_MAX_PAGES"
+  | "EIS_PUBLISH_DATE_FROM"
+  | "EIS_RECORDS_PER_PAGE"
   | "EIS_SEARCH_URL"
   | "EIS_SEARCH_TERMS"
   | "EIS_USER_AGENT"
@@ -43,6 +50,8 @@ type SourceFactory = () => SourceAdapter;
 export const SUPPORTED_SOURCE_CODES = [
   "easuz",
   "eis",
+  "eis_contracts",
+  "eis_contracts_223",
   "rnp",
   "fedresurs",
   "fns",
@@ -107,10 +116,50 @@ function createSourceFactories(config: SourceResolverConfig): Record<string, Sou
       }),
     eis: () =>
       createEisSourceAdapter({
+        code: "eis",
+        name: "ЕИС / zakupki.gov.ru",
         baseUrl: config.EIS_BASE_URL,
+        detailLinkPatterns: ["/epz/order/notice/", "/epz/order/extendedsearch/"],
+        maxPages: config.EIS_MAX_PAGES,
         searchUrl: config.EIS_SEARCH_URL,
         searchTerms: config.EIS_SEARCH_TERMS,
         maxItems: config.EIS_MAX_ITEMS,
+        portalName: "ЕИС / zakupki.gov.ru",
+        publishDateFrom: config.EIS_PUBLISH_DATE_FROM,
+        recordsPerPage: config.EIS_RECORDS_PER_PAGE,
+        sourceType: "procurement",
+        userAgent: config.EIS_USER_AGENT
+      }),
+    eis_contracts: () =>
+      createEisSourceAdapter({
+        code: "eis_contracts",
+        name: "ЕИС / реестр контрактов 44-ФЗ",
+        baseUrl: config.EIS_BASE_URL,
+        detailLinkPatterns: ["/epz/contract/contractCard/common-info.html"],
+        maxPages: config.EIS_MAX_PAGES,
+        searchUrl: config.EIS_CONTRACTS_SEARCH_URL,
+        searchTerms: config.EIS_SEARCH_TERMS,
+        maxItems: config.EIS_CONTRACTS_MAX_ITEMS,
+        portalName: "ЕИС / реестр контрактов 44-ФЗ",
+        publishDateFrom: config.EIS_PUBLISH_DATE_FROM,
+        recordsPerPage: config.EIS_RECORDS_PER_PAGE,
+        sourceType: "contract",
+        userAgent: config.EIS_USER_AGENT
+      }),
+    eis_contracts_223: () =>
+      createEisSourceAdapter({
+        code: "eis_contracts_223",
+        name: "ЕИС / реестр договоров 223-ФЗ",
+        baseUrl: config.EIS_BASE_URL,
+        detailLinkPatterns: ["/epz/contractfz223/card/contract-info.html"],
+        maxPages: config.EIS_MAX_PAGES,
+        searchUrl: config.EIS_CONTRACTS_223_SEARCH_URL,
+        searchTerms: config.EIS_SEARCH_TERMS,
+        maxItems: config.EIS_CONTRACTS_223_MAX_ITEMS,
+        portalName: "ЕИС / реестр договоров 223-ФЗ",
+        publishDateFrom: config.EIS_PUBLISH_DATE_FROM,
+        recordsPerPage: config.EIS_RECORDS_PER_PAGE,
+        sourceType: "contract",
         userAgent: config.EIS_USER_AGENT
       }),
     rnp: () =>

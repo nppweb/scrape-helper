@@ -32,8 +32,17 @@ describe("resolveEnabledSources", () => {
       EIS_BASE_URL: "https://zakupki.gov.ru",
       EIS_SEARCH_URL:
         "https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=&morphology=on&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false",
+      EIS_CONTRACTS_SEARCH_URL:
+        "https://zakupki.gov.ru/epz/contract/search/results.html?searchString=&recordsPerPage=_10",
+      EIS_CONTRACTS_223_SEARCH_URL:
+        "https://zakupki.gov.ru/epz/contractfz223/search/results.html?searchString=&recordsPerPage=_10",
       EIS_SEARCH_TERMS: ["Росэнергоатом", "атомная электростанция"],
       EIS_MAX_ITEMS: 5,
+      EIS_CONTRACTS_MAX_ITEMS: 5,
+      EIS_CONTRACTS_223_MAX_ITEMS: 5,
+      EIS_MAX_PAGES: 3,
+      EIS_RECORDS_PER_PAGE: 10,
+      EIS_PUBLISH_DATE_FROM: "2025-01-01",
       EIS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       RNP_BASE_URL: "https://zakupki.gov.ru",
       RNP_SEARCH_URL:
@@ -77,8 +86,17 @@ describe("resolveEnabledSources", () => {
       EIS_BASE_URL: "https://zakupki.gov.ru",
       EIS_SEARCH_URL:
         "https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=&morphology=on&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false",
+      EIS_CONTRACTS_SEARCH_URL:
+        "https://zakupki.gov.ru/epz/contract/search/results.html?searchString=&recordsPerPage=_10",
+      EIS_CONTRACTS_223_SEARCH_URL:
+        "https://zakupki.gov.ru/epz/contractfz223/search/results.html?searchString=&recordsPerPage=_10",
       EIS_SEARCH_TERMS: ["Росэнергоатом", "атомная электростанция"],
       EIS_MAX_ITEMS: 5,
+      EIS_CONTRACTS_MAX_ITEMS: 5,
+      EIS_CONTRACTS_223_MAX_ITEMS: 5,
+      EIS_MAX_PAGES: 3,
+      EIS_RECORDS_PER_PAGE: 10,
+      EIS_PUBLISH_DATE_FROM: "2025-01-01",
       EIS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       RNP_BASE_URL: "https://zakupki.gov.ru",
       RNP_SEARCH_URL:

@@ -7,14 +7,17 @@ const SEARCH_LINK_PATTERNS = [
   "/epz/order/notice/",
   "/epz/order/extendedsearch/",
   "/223/purchase/public/purchase/info/",
-  "/epz/contract/contractCard/common-info.html"
+  "/epz/contract/contractCard/common-info.html",
+  "/epz/contractfz223/card/contract-info.html"
 ];
 
 const TITLE_LABELS = [
   "Объект закупки",
   "Наименование объекта закупки",
   "Наименование закупки",
-  "Наименование"
+  "Наименование",
+  "Предмет договора",
+  "Предмет контракта"
 ];
 
 const DESCRIPTION_LABELS = [
@@ -29,9 +32,18 @@ const CUSTOMER_LABELS = [
   "Наименование организации"
 ];
 
-const STATUS_LABELS = ["Статус", "Этап закупки", "Состояние закупки"];
+const SUPPLIER_LABELS = ["Поставщик", "Подрядчик", "Исполнитель"];
 
-const PUBLISHED_AT_LABELS = ["Размещено", "Дата размещения", "Опубликовано"];
+const STATUS_LABELS = ["Статус", "Этап закупки", "Состояние закупки", "Статус контракта"];
+
+const PUBLISHED_AT_LABELS = [
+  "Размещено",
+  "Дата размещения",
+  "Опубликовано",
+  "Дата заключения договора",
+  "Дата заключения контракта",
+  "Заключение договора"
+];
 
 const DEADLINE_LABELS = [
   "Окончание подачи заявок",
@@ -43,7 +55,9 @@ const PRICE_LABELS = [
   "Начальная (максимальная) цена контракта",
   "Начальная цена",
   "Начальная цена договора",
-  "Максимальное значение цены контракта"
+  "Максимальное значение цены контракта",
+  "Цена контракта",
+  "Цена договора"
 ];
 
 const CURRENCY_LABELS = ["Валюта", "Код валюты"];
@@ -52,7 +66,7 @@ const REGION_LABELS = ["Субъект РФ", "Регион", "Место пос
 
 export function parseEisSearchResults(
   html: string,
-  options: { baseUrl: string; maxItems: number }
+  options: { baseUrl: string; maxItems: number; detailLinkPatterns?: string[] }
 ): EisSearchResultLink[] {
   const $ = load(html);
   const links = new Map<string, EisSearchResultLink>();
@@ -64,7 +78,7 @@ export function parseEisSearchResults(
     }
 
     const resolvedUrl = resolveUrl(options.baseUrl, href);
-    if (!resolvedUrl || !isLikelyEisNoticeUrl(resolvedUrl)) {
+    if (!resolvedUrl || !isLikelyEisNoticeUrl(resolvedUrl, options.detailLinkPatterns)) {
       return;
     }
 
@@ -88,12 +102,21 @@ export function parseEisSearchResults(
   return Array.from(links.values()).slice(0, options.maxItems);
 }
 
-export function parseEisNoticePage(html: string, detailUrl: string): EisParsedNotice {
+export function parseEisNoticePage(
+  html: string,
+  detailUrl: string,
+  options?: {
+    fallbackExternalId?: string;
+    sourceName?: string;
+    sourceType?: EisParsedNotice["sourceType"];
+  }
+): EisParsedNotice {
   const $ = load(html);
   const structuredValues = collectStructuredFieldValues($);
   const externalId =
     extractRegistrationNumber(detailUrl) ??
     findFirstValue($, ["Реестровый номер", "Номер закупки"], structuredValues) ??
+    options?.fallbackExternalId ??
     readPageTitle($) ??
     "unknown";
 
@@ -109,6 +132,7 @@ export function parseEisNoticePage(html: string, detailUrl: string): EisParsedNo
     undefined;
 
   const customerName = findFirstValue($, CUSTOMER_LABELS, structuredValues) ?? undefined;
+  const supplierName = findFirstValue($, SUPPLIER_LABELS, structuredValues) ?? undefined;
   const status = findFirstValue($, STATUS_LABELS, structuredValues) ?? undefined;
   const publishedAt = parseRussianDateTime(findFirstValue($, PUBLISHED_AT_LABELS, structuredValues));
   const applicationDeadline = parseRussianDateTime(
@@ -117,17 +141,18 @@ export function parseEisNoticePage(html: string, detailUrl: string): EisParsedNo
   const priceText = findFirstValue($, PRICE_LABELS, structuredValues);
   const initialPrice = parseRussianAmount(priceText);
   const currency = normalizeCurrency(findFirstValue($, CURRENCY_LABELS, structuredValues) ?? priceText);
-  const region = findFirstValue($, REGION_LABELS, structuredValues) ?? undefined;
+  const region = sanitizeRegion(findFirstValue($, REGION_LABELS, structuredValues));
 
   return {
     externalId,
     externalUrl: detailUrl,
     sourcePageUrl: detailUrl,
-    sourceName: "eis",
-    sourceType: "procurement",
+    sourceName: options?.sourceName ?? "eis",
+    sourceType: options?.sourceType ?? "procurement",
     title,
     description,
     customerName,
+    supplierName,
     status,
     publishedAt,
     applicationDeadline,
@@ -307,6 +332,11 @@ function collectStructuredFieldValues($: CheerioAPI): Map<string, string[]> {
     addValue(section.find(".cardMainInfo__title").first().text(), section.find(".cardMainInfo__content").first().text());
   });
 
+  $(".price-block, .data-block").each((_index, element) => {
+    const section = $(element);
+    addValue(section.find(".rightBlock__tittle").first().text(), section.find(".rightBlock__price, .rightBlock__text").first().text());
+  });
+
   $(".blockInfo__section").each((_index, element) => {
     const section = $(element);
     addValue(section.find(".section__title").first().text(), section.find(".section__info").first().text());
@@ -333,8 +363,9 @@ function resolveUrl(baseUrl: string, href: string): string | null {
   }
 }
 
-function isLikelyEisNoticeUrl(url: string): boolean {
-  return SEARCH_LINK_PATTERNS.some((pattern) => url.includes(pattern)) && url.includes("regNumber=");
+function isLikelyEisNoticeUrl(url: string, patterns?: string[]): boolean {
+  const knownPattern = (patterns ?? SEARCH_LINK_PATTERNS).some((pattern) => url.includes(pattern));
+  return knownPattern && (url.includes("regNumber=") || url.includes("reestrNumber=") || url.includes("?id="));
 }
 
 function getDetailUrlPriority(url: string): number {
@@ -354,7 +385,10 @@ function getDetailUrlPriority(url: string): number {
 }
 
 function extractRegistrationNumber(value: string): string | undefined {
-  const match = value.match(/regNumber=([0-9]+)/i) ?? value.match(/\b([0-9]{11,20})\b/);
+  const match =
+    value.match(/regNumber=([0-9]+)/i) ??
+    value.match(/reestrNumber=([0-9]+)/i) ??
+    value.match(/\b([0-9]{11,30})\b/);
   return match?.[1];
 }
 
@@ -406,6 +440,24 @@ function normalizeCurrency(value: string | undefined): string | undefined {
   }
 
   return normalized.split(/\s+/)[0];
+}
+
+function sanitizeRegion(value: string | undefined): string | undefined {
+  const cleaned = cleanText(value);
+
+  if (!cleaned) {
+    return undefined;
+  }
+
+  if (
+    cleaned.length > 120 ||
+    cleaned.includes("Официальный сайт единой информационной системы") ||
+    cleaned.includes("контрактной системе в сфере закупок")
+  ) {
+    return undefined;
+  }
+
+  return cleaned;
 }
 
 function checksumHtml(html: string): string {
