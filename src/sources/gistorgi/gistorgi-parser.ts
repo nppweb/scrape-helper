@@ -1,210 +1,123 @@
 import { createHash } from "node:crypto";
-import { load, type CheerioAPI, type Cheerio } from "cheerio";
-import type { AnyNode } from "domhandler";
 import type { GistorgiParsedLot, GistorgiSearchResultLink } from "./types";
 
-const SEARCH_LINK_PATTERNS = ["/new/public/lots/lot/"];
-
-const TITLE_LABELS = ["Наименование лота", "Предмет торгов", "Наименование"];
-const DESCRIPTION_LABELS = ["Описание лота", "Описание", "Описание имущества"];
-const ORGANIZER_NAME_LABELS = [
-  "Организатор торгов",
-  "Организатор",
-  "Наименование организатора"
-];
-const ORGANIZER_INN_LABELS = ["ИНН организатора", "ИНН"];
-const AUCTION_TYPE_LABELS = ["Вид торгов", "Форма проведения", "Тип торгов"];
-const STATUS_LABELS = ["Статус", "Статус процедуры"];
-const PUBLISHED_AT_LABELS = ["Дата публикации", "Дата размещения"];
-const APPLICATION_DEADLINE_LABELS = [
-  "Дата и время окончания подачи заявок",
-  "Окончание подачи заявок",
-  "Дата окончания подачи заявок"
-];
-const BIDDING_DATE_LABELS = ["Дата проведения торгов", "Дата аукциона", "Дата и время торгов"];
-const START_PRICE_LABELS = ["Начальная цена", "Цена лота", "Начальная стоимость"];
-const REGION_LABELS = ["Субъект местонахождения имущества", "Регион", "Местонахождение"];
-const LOT_INFO_LABELS = ["Информация о лоте", "Сведения о лоте", "Характеристики имущества"];
-
 export function parseGistorgiSearchResults(
-  html: string,
+  payload: string,
   options: { baseUrl: string; maxItems: number }
 ): GistorgiSearchResultLink[] {
-  const $ = load(html);
+  const response = parseJsonObject(payload);
+  const content = asArray(response.content);
   const links = new Map<string, GistorgiSearchResultLink>();
 
-  $("a[href]").each((_index, element) => {
-    const href = $(element).attr("href");
-    if (!href) {
-      return;
-    }
-
-    const resolvedUrl = resolveUrl(options.baseUrl, href);
-    if (!resolvedUrl || !isLikelyDetailUrl(resolvedUrl)) {
-      return;
-    }
-
-    const externalId = extractExternalId(resolvedUrl);
+  for (const entry of content) {
+    const externalId = readString(entry.id);
     if (!externalId || links.has(externalId)) {
-      return;
+      continue;
     }
+
+    const detailUrl = buildGistorgiPublicLotUrl(options.baseUrl, externalId);
 
     links.set(externalId, {
       externalId,
-      detailUrl: resolvedUrl,
-      title: cleanText($(element).text()) || undefined
+      detailUrl,
+      title: readString(entry.lotName) ?? readString(entry.noticeNumber) ?? undefined
     });
-  });
+  }
 
   return Array.from(links.values()).slice(0, options.maxItems);
 }
 
-export function parseGistorgiDetailPage(html: string, detailUrl: string): GistorgiParsedLot {
-  const $ = load(html);
-  const title =
-    findFirstValue($, TITLE_LABELS) ||
-    cleanText($("h1").first().text()) ||
-    cleanText($("title").first().text()) ||
-    undefined;
-  const startPriceText = findFirstValue($, START_PRICE_LABELS);
+export function parseGistorgiDetailResponse(
+  payload: string,
+  options: { baseUrl: string; externalId?: string }
+): GistorgiParsedLot {
+  const data = parseJsonObject(payload);
+  const externalId = readString(data.id) ?? options.externalId ?? "unknown";
+  const detailUrl = buildGistorgiPublicLotUrl(options.baseUrl, externalId);
+  const organizer = firstObject(data.organizerInfo, data.sellerInfo);
+  const title = readString(data.lotName) ?? readString(data.noticeNumber) ?? undefined;
+  const description = readString(data.lotDescription);
 
   return {
-    externalId: extractExternalId(detailUrl) ?? "unknown",
+    externalId,
     externalUrl: detailUrl,
     sourcePageUrl: detailUrl,
     sourceName: "gistorgi",
     sourceType: "auctions",
     title,
-    description: findFirstValue($, DESCRIPTION_LABELS),
-    organizerName: findFirstValue($, ORGANIZER_NAME_LABELS),
-    organizerInn: normalizeIdentifier(findFirstValue($, ORGANIZER_INN_LABELS)),
-    auctionType: findFirstValue($, AUCTION_TYPE_LABELS),
-    status: findFirstValue($, STATUS_LABELS),
-    publishedAt: parseRussianDateTime(findFirstValue($, PUBLISHED_AT_LABELS)),
-    applicationDeadline: parseRussianDateTime(findFirstValue($, APPLICATION_DEADLINE_LABELS)),
-    biddingDate: parseRussianDateTime(findFirstValue($, BIDDING_DATE_LABELS)),
-    startPrice: parseAmount(startPriceText),
-    currency: parseCurrency(startPriceText),
-    region: findFirstValue($, REGION_LABELS),
-    lotInfo: findFirstValue($, LOT_INFO_LABELS),
-    checksum: createHash("sha256").update(html).digest("hex")
+    description,
+    organizerName:
+      readString(organizer.fullName) ??
+      readString(organizer.name) ??
+      readString(data.organizerName) ??
+      undefined,
+    organizerInn: normalizeIdentifier(
+      readString(organizer.inn) ??
+        readString(organizer.innKio) ??
+        readString(data.organizerInn) ??
+        undefined
+    ),
+    auctionType:
+      readString(asObject(data.biddType).name) ??
+      readString(asObject(data.biddForm).name) ??
+      undefined,
+    status: readString(data.lotStatus),
+    publishedAt: normalizeIsoDateTime(readString(data.noticeFirstVersionPublicationDate)),
+    applicationDeadline: normalizeIsoDateTime(readString(data.biddEndTime)),
+    biddingDate:
+      normalizeIsoDateTime(readString(data.auctionStartDate)) ??
+      normalizeIsoDateTime(readString(data.biddStartTime)),
+    startPrice: parseNumericValue(data.priceMinExact ?? data.priceMin),
+    currency: readString(data.currencyCode),
+    region: readString(data.subjectRFName) ?? readString(data.subjectRFCode) ?? undefined,
+    lotInfo: buildLotInfo(data, description),
+    noticeNumber: readString(data.noticeNumber),
+    lotNumber: readString(data.lotNumber),
+    category: readString(asObject(data.category).name),
+    etpUrl: readString(data.etpUrl),
+    transactionType: readString(data.typeTransaction),
+    checksum: createHash("sha256").update(payload).digest("hex")
   };
 }
 
-function findFirstValue($: CheerioAPI, labels: string[]): string | undefined {
-  for (const label of labels) {
-    const value = findValueByLabel($, label);
-    if (value) {
-      return value;
-    }
-  }
-
-  return undefined;
+export function buildGistorgiPublicLotUrl(baseUrl: string, externalId: string): string {
+  return new URL(`/new/public/lots/lot/${encodeURIComponent(externalId)}/(lotInfo:info)`, baseUrl).toString();
 }
 
-function findValueByLabel($: CheerioAPI, label: string): string | undefined {
-  const normalizedLabel = normalizeText(label);
-  const candidates = $("th, td, dt, dd, div, span, p, strong, b, label").toArray();
-
-  for (const element of candidates) {
-    const ownText = cleanText($(element).text());
-    if (!ownText) {
-      continue;
-    }
-
-    const normalizedOwnText = normalizeText(ownText);
-    if (
-      normalizedOwnText !== normalizedLabel &&
-      !normalizedOwnText.startsWith(`${normalizedLabel}:`) &&
-      !normalizedOwnText.includes(` ${normalizedLabel} `)
-    ) {
-      continue;
-    }
-
-    const relatedValues = [
-      getNeighborValue($, $(element)),
-      getValueFromSameRow($, $(element)),
-      extractValueAfterColon(ownText)
-    ];
-
-    for (const candidate of relatedValues) {
-      const value = cleanText(candidate);
-      if (value && normalizeText(value) !== normalizedLabel) {
-        return value;
-      }
-    }
-  }
-
-  return undefined;
-}
-
-function getNeighborValue($: CheerioAPI, element: Cheerio<AnyNode>): string | undefined {
-  const next = element.nextAll().toArray().find((node) => cleanText($(node).text()));
-  if (next) {
-    return $(next).text();
-  }
-
-  const parent = element.parent();
-  const sibling = parent.nextAll().toArray().find((node) => cleanText($(node).text()));
-  if (sibling) {
-    return $(sibling).text();
-  }
-
-  return undefined;
-}
-
-function getValueFromSameRow($: CheerioAPI, element: Cheerio<AnyNode>): string | undefined {
-  const row = element.closest("tr");
-  if (row.length) {
-    const cells = row.find("td").toArray().map((cell) => cleanText($(cell).text())).filter(Boolean);
-    if (cells.length > 1) {
-      return cells[cells.length - 1];
-    }
-  }
-
-  const wrapper = element.closest("dl, .cardMainInfo, .common-info__content, .row, .lot-info");
-  if (wrapper.length) {
-    const text = cleanText(wrapper.text());
-    if (text) {
-      return text.replace(cleanText(element.text()), "").trim();
-    }
-  }
-
-  return undefined;
-}
-
-function extractValueAfterColon(text: string): string | undefined {
-  const parts = text.split(":");
-  if (parts.length < 2) {
-    return undefined;
-  }
-
-  return parts.slice(1).join(":");
-}
-
-function normalizeText(value: string): string {
-  return value.replace(/\s+/g, " ").replace(/[:;]/g, "").trim().toLowerCase();
-}
-
-function cleanText(value: string | undefined | null): string {
-  return (value ?? "").replace(/\s+/g, " ").replace(/\u00a0/g, " ").trim();
-}
-
-function resolveUrl(baseUrl: string, href: string): string | null {
+function parseJsonObject(payload: string): Record<string, unknown> {
   try {
-    return new URL(href, baseUrl).toString();
+    const parsed = JSON.parse(payload) as unknown;
+    return asObject(parsed);
   } catch {
-    return null;
+    return {};
   }
 }
 
-function isLikelyDetailUrl(url: string): boolean {
-  return SEARCH_LINK_PATTERNS.some((pattern) => url.includes(pattern));
+function asObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
-function extractExternalId(value: string): string | undefined {
-  const match = value.match(/\/lot\/([^/?#]+)/);
-  return match?.[1];
+function asArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map((entry) => asObject(entry)) : [];
+}
+
+function firstObject(...values: unknown[]): Record<string, unknown> {
+  return values.map((value) => asObject(value)).find((value) => Object.keys(value).length > 0) ?? {};
+}
+
+function readString(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return undefined;
 }
 
 function normalizeIdentifier(value: string | undefined): string | undefined {
@@ -216,48 +129,80 @@ function normalizeIdentifier(value: string | undefined): string | undefined {
   return normalized || undefined;
 }
 
-function parseRussianDateTime(value: string | undefined): string | undefined {
+function normalizeIsoDateTime(value: string | undefined): string | undefined {
   if (!value) {
     return undefined;
   }
 
-  const match = value.match(
-    /\b(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?\b/
+  const normalized = value.match(
+    /^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2}:\d{2})(?:\.\d+)?([+-]\d{2}:\d{2}|Z)$/
   );
+  if (normalized) {
+    const [, datePart, timePart, timezonePart] = normalized;
+    return `${datePart}T${timePart}${timezonePart}`;
+  }
 
-  if (!match) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
     return undefined;
   }
 
-  const [, day, month, year, hours = "00", minutes = "00", seconds = "00"] = match;
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+03:00`;
+  return parsed.toISOString();
 }
 
-function parseAmount(value: string | undefined): number | undefined {
-  if (!value) {
+function parseNumericValue(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const normalized = readString(value)?.replace(/\s+/g, "").replace(",", ".");
+  if (!normalized) {
     return undefined;
   }
 
-  const match = value.match(/(\d[\d\s]*)(?:,(\d{1,2}))?/);
-  if (!match) {
-    return undefined;
-  }
-
-  const normalized = `${match[1].replace(/\s+/g, "")}.${match[2] ?? "00"}`;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function parseCurrency(value: string | undefined): string | undefined {
-  const normalized = (value ?? "").toLowerCase();
-  if (normalized.includes("руб")) {
-    return "RUB";
+function buildLotInfo(data: Record<string, unknown>, description: string | undefined): string | undefined {
+  const parts = [
+    readString(data.estateAddress),
+    joinNamedPairs(asArray(data.characteristics), 4),
+    joinNamedPairs(asArray(data.attributes), 4)
+  ].filter(Boolean);
+
+  const uniqueParts = Array.from(new Set(parts));
+  const lotInfo = uniqueParts.join(". ").trim();
+
+  if (!lotInfo) {
+    return description;
   }
-  if (normalized.includes("eur") || normalized.includes("евро")) {
-    return "EUR";
-  }
-  if (normalized.includes("usd") || normalized.includes("долл")) {
-    return "USD";
-  }
-  return undefined;
+
+  return lotInfo === description ? undefined : lotInfo;
+}
+
+function joinNamedPairs(entries: Record<string, unknown>[], maxItems: number): string | undefined {
+  const parts = entries
+    .slice(0, maxItems)
+    .map((entry) => {
+      const name =
+        readString(entry.characteristicName) ??
+        readString(entry.name) ??
+        readString(entry.codeName) ??
+        undefined;
+      const value =
+        readString(entry.characteristicValue) ??
+        readString(entry.value) ??
+        readString(entry.text) ??
+        undefined;
+
+      if (name && value) {
+        return `${name}: ${value}`;
+      }
+
+      return value ?? name;
+    })
+    .filter((value): value is string => Boolean(value));
+
+  return parts.length > 0 ? parts.join("; ") : undefined;
 }

@@ -26,8 +26,8 @@ export function createGistorgiSourceAdapter(config: GistorgiSourceConfig): Sourc
 
       for (const link of links) {
         try {
-          const { html, lot } = await client.fetchLot(
-            link.detailUrl,
+          const { rawJson, lot } = await client.fetchLot(
+            link.externalId,
             context.logger.child({
               source: "gistorgi",
               externalId: link.externalId,
@@ -36,7 +36,7 @@ export function createGistorgiSourceAdapter(config: GistorgiSourceConfig): Sourc
             context.requestTimeoutMs
           );
 
-          records.push(mapGistorgiLotToCollectedRecord({ lot, html }));
+          records.push(mapGistorgiLotToCollectedRecord({ lot, rawJson }));
         } catch (error) {
           context.logger.warn(
             { err: error, source: "gistorgi", externalId: link.externalId, detailUrl: link.detailUrl },

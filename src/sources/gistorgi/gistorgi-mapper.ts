@@ -3,9 +3,9 @@ import type { GistorgiParsedLot } from "./types";
 
 export function mapGistorgiLotToCollectedRecord(input: {
   lot: GistorgiParsedLot;
-  html: string;
+  rawJson: string;
 }): CollectedRawRecord {
-  const { lot, html } = input;
+  const { lot, rawJson } = input;
 
   return {
     url: lot.externalUrl,
@@ -28,6 +28,11 @@ export function mapGistorgiLotToCollectedRecord(input: {
       currency: lot.currency,
       region: lot.region,
       lotInfo: lot.lotInfo,
+      noticeNumber: lot.noticeNumber,
+      lotNumber: lot.lotNumber,
+      category: lot.category,
+      etpUrl: lot.etpUrl,
+      transactionType: lot.transactionType,
       checksum: lot.checksum
     },
     metadata: {
@@ -36,10 +41,10 @@ export function mapGistorgiLotToCollectedRecord(input: {
     },
     artifacts: [
       {
-        kind: "RAW_HTML",
-        fileName: `gistorgi-${lot.externalId}.html`,
-        contentType: "text/html; charset=utf-8",
-        body: html,
+        kind: "RAW_JSON",
+        fileName: `gistorgi-${lot.externalId}.json`,
+        contentType: "application/json; charset=utf-8",
+        body: rawJson,
         metadata: {
           externalId: lot.externalId,
           externalUrl: lot.externalUrl,

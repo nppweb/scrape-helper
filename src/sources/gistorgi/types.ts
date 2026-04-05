@@ -30,5 +30,10 @@ export type GistorgiParsedLot = {
   currency?: string;
   region?: string;
   lotInfo?: string;
+  noticeNumber?: string;
+  lotNumber?: string;
+  category?: string;
+  etpUrl?: string;
+  transactionType?: string;
   checksum: string;
 };
