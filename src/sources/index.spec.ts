@@ -32,6 +32,7 @@ describe("resolveEnabledSources", () => {
       EIS_BASE_URL: "https://zakupki.gov.ru",
       EIS_SEARCH_URL:
         "https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=&morphology=on&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false",
+      EIS_SEARCH_TERMS: ["Росэнергоатом", "атомная электростанция"],
       EIS_MAX_ITEMS: 5,
       EIS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       RNP_BASE_URL: "https://zakupki.gov.ru",
@@ -76,6 +77,7 @@ describe("resolveEnabledSources", () => {
       EIS_BASE_URL: "https://zakupki.gov.ru",
       EIS_SEARCH_URL:
         "https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=&morphology=on&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false",
+      EIS_SEARCH_TERMS: ["Росэнергоатом", "атомная электростанция"],
       EIS_MAX_ITEMS: 5,
       EIS_USER_AGENT: "NPPWEB/1.0 (+https://example.test)",
       RNP_BASE_URL: "https://zakupki.gov.ru",

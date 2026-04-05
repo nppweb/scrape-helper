@@ -16,6 +16,7 @@ type SourceResolverConfig = Pick<
   | "EIS_BASE_URL"
   | "EIS_MAX_ITEMS"
   | "EIS_SEARCH_URL"
+  | "EIS_SEARCH_TERMS"
   | "EIS_USER_AGENT"
   | "ENABLED_SOURCES"
   | "FEDRESURS_BASE_URL"
@@ -108,6 +109,7 @@ function createSourceFactories(config: SourceResolverConfig): Record<string, Sou
       createEisSourceAdapter({
         baseUrl: config.EIS_BASE_URL,
         searchUrl: config.EIS_SEARCH_URL,
+        searchTerms: config.EIS_SEARCH_TERMS,
         maxItems: config.EIS_MAX_ITEMS,
         userAgent: config.EIS_USER_AGENT
       }),

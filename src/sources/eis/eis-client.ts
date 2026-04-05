@@ -9,11 +9,29 @@ export class EisClient {
   constructor(private readonly config: EisClientConfig) {}
 
   async listNoticeLinks(logger: Logger, requestTimeoutMs: number): Promise<EisSearchResultLink[]> {
-    const html = await this.fetchText(this.config.searchUrl, logger, requestTimeoutMs, "search page");
-    return parseEisSearchResults(html, {
-      baseUrl: this.config.baseUrl,
-      maxItems: this.config.maxItems
-    });
+    const links = new Map<string, EisSearchResultLink>();
+
+    for (const query of buildEisSearchQueries(this.config.searchTerms)) {
+      const searchUrl = buildEisSearchUrl(this.config.searchUrl, query);
+      const html = await this.fetchText(searchUrl, logger, requestTimeoutMs, "search page");
+      const parsedLinks = parseEisSearchResults(html, {
+        baseUrl: this.config.baseUrl,
+        maxItems: this.config.maxItems
+      });
+
+      for (const link of parsedLinks) {
+        if (links.has(link.externalId)) {
+          continue;
+        }
+
+        links.set(link.externalId, {
+          ...link,
+          matchedQuery: query || undefined
+        });
+      }
+    }
+
+    return Array.from(links.values());
   }
 
   async fetchNotice(
@@ -82,4 +100,24 @@ export class EisClient {
       }
     );
   }
+}
+
+function buildEisSearchQueries(searchTerms: string[]): string[] {
+  const queries = [""];
+
+  for (const term of searchTerms) {
+    if (!term || queries.includes(term)) {
+      continue;
+    }
+
+    queries.push(term);
+  }
+
+  return queries;
+}
+
+function buildEisSearchUrl(baseSearchUrl: string, query: string): string {
+  const url = new URL(baseSearchUrl);
+  url.searchParams.set("searchString", query);
+  return url.toString();
 }

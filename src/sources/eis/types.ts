@@ -1,6 +1,7 @@
 export type EisClientConfig = {
   baseUrl: string;
   searchUrl: string;
+  searchTerms: string[];
   maxItems: number;
   userAgent: string;
 };
@@ -9,6 +10,7 @@ export type EisSearchResultLink = {
   externalId: string;
   detailUrl: string;
   title?: string;
+  matchedQuery?: string;
 };
 
 export type EisParsedNotice = {

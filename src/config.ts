@@ -88,6 +88,12 @@ const envSchema = z.object({
     .default(
       "https://zakupki.gov.ru/epz/order/extendedsearch/results.html?searchString=&morphology=on&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false"
     ),
+  EIS_SEARCH_TERMS: z
+    .string()
+    .default(
+      "Концерн Росэнергоатом,Росатом,Балаковская атомная станция,Калининская атомная станция,Ленинградская атомная станция"
+    )
+    .transform((value) => parseStringList(value, [])),
   EIS_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
   EIS_USER_AGENT: z
     .string()

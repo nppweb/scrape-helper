@@ -69,15 +69,20 @@ export function parseEisSearchResults(
     }
 
     const externalId = extractRegistrationNumber(resolvedUrl) ?? extractRegistrationNumber($(element).text());
-    if (!externalId || links.has(externalId)) {
+    if (!externalId) {
       return;
     }
 
-    links.set(externalId, {
+    const candidate: EisSearchResultLink = {
       externalId,
       detailUrl: resolvedUrl,
       title: cleanText($(element).text()) || undefined
-    });
+    };
+    const existing = links.get(externalId);
+
+    if (!existing || getDetailUrlPriority(candidate.detailUrl) > getDetailUrlPriority(existing.detailUrl)) {
+      links.set(externalId, candidate);
+    }
   });
 
   return Array.from(links.values()).slice(0, options.maxItems);
@@ -85,31 +90,34 @@ export function parseEisSearchResults(
 
 export function parseEisNoticePage(html: string, detailUrl: string): EisParsedNotice {
   const $ = load(html);
+  const structuredValues = collectStructuredFieldValues($);
   const externalId =
     extractRegistrationNumber(detailUrl) ??
-    findFirstValue($, ["Реестровый номер", "Номер закупки"]) ??
+    findFirstValue($, ["Реестровый номер", "Номер закупки"], structuredValues) ??
     readPageTitle($) ??
     "unknown";
 
   const title =
-    findFirstValue($, TITLE_LABELS) ??
+    findFirstValue($, TITLE_LABELS, structuredValues) ??
     readPrimaryHeading($) ??
     findMetaContent($, "og:title") ??
     findMetaContent($, "twitter:title");
 
   const description =
-    findFirstValue($, DESCRIPTION_LABELS) ??
+    findFirstValue($, DESCRIPTION_LABELS, structuredValues) ??
     findMetaContent($, "description") ??
     undefined;
 
-  const customerName = findFirstValue($, CUSTOMER_LABELS) ?? undefined;
-  const status = findFirstValue($, STATUS_LABELS) ?? undefined;
-  const publishedAt = parseRussianDateTime(findFirstValue($, PUBLISHED_AT_LABELS));
-  const applicationDeadline = parseRussianDateTime(findFirstValue($, DEADLINE_LABELS));
-  const priceText = findFirstValue($, PRICE_LABELS);
+  const customerName = findFirstValue($, CUSTOMER_LABELS, structuredValues) ?? undefined;
+  const status = findFirstValue($, STATUS_LABELS, structuredValues) ?? undefined;
+  const publishedAt = parseRussianDateTime(findFirstValue($, PUBLISHED_AT_LABELS, structuredValues));
+  const applicationDeadline = parseRussianDateTime(
+    findFirstValue($, DEADLINE_LABELS, structuredValues)
+  );
+  const priceText = findFirstValue($, PRICE_LABELS, structuredValues);
   const initialPrice = parseRussianAmount(priceText);
-  const currency = normalizeCurrency(findFirstValue($, CURRENCY_LABELS) ?? priceText);
-  const region = findFirstValue($, REGION_LABELS) ?? undefined;
+  const currency = normalizeCurrency(findFirstValue($, CURRENCY_LABELS, structuredValues) ?? priceText);
+  const region = findFirstValue($, REGION_LABELS, structuredValues) ?? undefined;
 
   return {
     externalId,
@@ -130,9 +138,37 @@ export function parseEisNoticePage(html: string, detailUrl: string): EisParsedNo
   };
 }
 
-function findFirstValue($: CheerioAPI, labels: string[]): string | undefined {
+function findFirstValue(
+  $: CheerioAPI,
+  labels: string[],
+  structuredValues?: Map<string, string[]>
+): string | undefined {
+  const fromStructuredValues = findFromStructuredValues(labels, structuredValues);
+  if (fromStructuredValues) {
+    return fromStructuredValues;
+  }
+
   for (const label of labels) {
     const value = findValueByLabel($, label);
+    if (value) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
+function findFromStructuredValues(
+  labels: string[],
+  structuredValues: Map<string, string[]> | undefined
+): string | undefined {
+  if (!structuredValues) {
+    return undefined;
+  }
+
+  for (const label of labels) {
+    const values = structuredValues.get(normalizeText(label));
+    const value = values?.find(Boolean);
     if (value) {
       return value;
     }
@@ -222,7 +258,10 @@ function extractValueAfterColon(text: string): string | undefined {
 }
 
 function readPrimaryHeading($: CheerioAPI): string | undefined {
-  const heading = $("h1, h2").first().text();
+  const preferredHeading = $(".cardMainInfo__title.d-flex, .registry-entry__title, .sectionMainInfo__header h1")
+    .first()
+    .text();
+  const heading = preferredHeading || $("h1, h2").first().text();
   return cleanText(heading) || undefined;
 }
 
@@ -246,6 +285,46 @@ function cleanText(value: string | undefined | null): string {
   return (value ?? "").replace(/\s+/g, " ").replace(/\u00a0/g, " ").trim();
 }
 
+function collectStructuredFieldValues($: CheerioAPI): Map<string, string[]> {
+  const values = new Map<string, string[]>();
+
+  const addValue = (label: string | undefined, value: string | undefined) => {
+    const normalizedLabel = normalizeText(label ?? "");
+    const cleanedValue = cleanText(value);
+    if (!normalizedLabel || !cleanedValue) {
+      return;
+    }
+
+    const existingValues = values.get(normalizedLabel) ?? [];
+    if (!existingValues.includes(cleanedValue)) {
+      existingValues.push(cleanedValue);
+      values.set(normalizedLabel, existingValues);
+    }
+  };
+
+  $(".cardMainInfo__section, .price, .date .cardMainInfo__section").each((_index, element) => {
+    const section = $(element);
+    addValue(section.find(".cardMainInfo__title").first().text(), section.find(".cardMainInfo__content").first().text());
+  });
+
+  $(".blockInfo__section").each((_index, element) => {
+    const section = $(element);
+    addValue(section.find(".section__title").first().text(), section.find(".section__info").first().text());
+  });
+
+  $("tr").each((_index, element) => {
+    const row = $(element);
+    addValue(row.find("th, td").first().text(), row.find("td").last().text());
+  });
+
+  $("dt").each((_index, element) => {
+    const term = $(element);
+    addValue(term.text(), term.next("dd").text());
+  });
+
+  return values;
+}
+
 function resolveUrl(baseUrl: string, href: string): string | null {
   try {
     return new URL(href, baseUrl).toString();
@@ -256,6 +335,22 @@ function resolveUrl(baseUrl: string, href: string): string | null {
 
 function isLikelyEisNoticeUrl(url: string): boolean {
   return SEARCH_LINK_PATTERNS.some((pattern) => url.includes(pattern)) && url.includes("regNumber=");
+}
+
+function getDetailUrlPriority(url: string): number {
+  if (url.includes("/view/common-info.html")) {
+    return 3;
+  }
+
+  if (url.includes("common-info.html")) {
+    return 2;
+  }
+
+  if (url.includes("/printForm/")) {
+    return 0;
+  }
+
+  return 1;
 }
 
 function extractRegistrationNumber(value: string): string | undefined {
@@ -300,7 +395,13 @@ function normalizeCurrency(value: string | undefined): string | undefined {
     return undefined;
   }
 
-  if (normalized.includes("RUB") || normalized.includes("РУБ") || normalized.includes("₽")) {
+  if (
+    normalized.includes("RUB") ||
+    normalized.includes("RUR") ||
+    normalized.includes("РУБ") ||
+    normalized.includes("₽") ||
+    normalized.includes("РОССИЙСКИЙ РУБЛЬ")
+  ) {
     return "RUB";
   }
 

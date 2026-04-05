@@ -46,7 +46,10 @@ export class S3ArtifactStore {
         ContentType: artifact.contentType,
         Metadata: artifact.metadata
           ? Object.fromEntries(
-              Object.entries(artifact.metadata).map(([key, value]) => [key, String(value)])
+              Object.entries(artifact.metadata).map(([key, value]) => [
+                key,
+                toS3MetadataValue(value)
+              ])
             )
           : undefined
       })
@@ -83,4 +86,9 @@ export class S3ArtifactStore {
 
 function trimTrailingSlash(value: string): string {
   return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+function toS3MetadataValue(value: unknown): string {
+  const stringValue = String(value);
+  return /[^\u0020-\u007e]/.test(stringValue) ? encodeURIComponent(stringValue) : stringValue;
 }
