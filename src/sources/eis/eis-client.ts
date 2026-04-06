@@ -19,12 +19,28 @@ export class EisClient {
           publishDateFrom: this.config.publishDateFrom,
           recordsPerPage: this.config.recordsPerPage
         });
-        const html = await this.fetchText(searchUrl, logger, requestTimeoutMs, "search page");
+        let html: string;
+        try {
+          html = await this.fetchText(searchUrl, logger, requestTimeoutMs, "search page");
+        } catch (error) {
+          logger.warn(
+            {
+              err: error,
+              query: query || undefined,
+              pageNumber,
+              searchUrl
+            },
+            "eis search page fetch failed; skipping remaining pages for query"
+          );
+          break;
+        }
+
         const parsedLinks = parseEisSearchResults(html, {
           baseUrl: this.config.baseUrl,
           maxItems: this.config.maxItems,
           detailLinkPatterns: this.config.detailLinkPatterns
         });
+        let addedOnPage = 0;
 
         for (const link of parsedLinks) {
           const candidate = {
@@ -40,6 +56,7 @@ export class EisClient {
               candidate.detailUrl.length < existing.detailUrl.length)
           ) {
             links.set(link.externalId, candidate);
+            addedOnPage += 1;
           }
 
           if (links.size >= this.config.maxItems) {
@@ -49,6 +66,7 @@ export class EisClient {
 
         if (
           parsedLinks.length === 0 ||
+          addedOnPage === 0 ||
           parsedLinks.length < Math.min(this.config.recordsPerPage, this.config.maxItems)
         ) {
           break;

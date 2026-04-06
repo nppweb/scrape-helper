@@ -88,6 +88,32 @@ describe("eis-parser", () => {
     ]);
   });
 
+  it("extracts 223-FZ links with non-numeric id parameters when link text has no registry number", () => {
+    const html = `
+      <html>
+        <body>
+          <a href="/epz/contractfz223/card/contract-info.html?id=ABCD123%3D%3D">
+            Открыть карточку договора
+          </a>
+        </body>
+      </html>
+    `;
+
+    const links = parseEisSearchResults(html, {
+      baseUrl: "https://zakupki.gov.ru",
+      maxItems: 10
+    });
+
+    expect(links).toEqual([
+      {
+        externalId: "ABCD123==",
+        detailUrl: "https://zakupki.gov.ru/epz/contractfz223/card/contract-info.html?id=ABCD123%3D%3D",
+        title: "Открыть карточку договора",
+        matchedQuery: undefined
+      }
+    ]);
+  });
+
   it("parses procurement fields from an EIS notice page", () => {
     const html = readFixture("notice.html");
 

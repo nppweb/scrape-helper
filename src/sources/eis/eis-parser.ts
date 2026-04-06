@@ -82,7 +82,7 @@ export function parseEisSearchResults(
       return;
     }
 
-    const externalId = extractRegistrationNumber(resolvedUrl) ?? extractRegistrationNumber($(element).text());
+    const externalId = extractRegistrationNumber($(element).text()) ?? extractRegistrationNumber(resolvedUrl);
     if (!externalId) {
       return;
     }
@@ -114,11 +114,12 @@ export function parseEisNoticePage(
   const $ = load(html);
   const structuredValues = collectStructuredFieldValues($);
   const externalId =
-    extractRegistrationNumber(detailUrl) ??
-    findFirstValue($, ["Реестровый номер", "Номер закупки"], structuredValues) ??
-    options?.fallbackExternalId ??
-    readPageTitle($) ??
-    "unknown";
+    [
+      findFirstValue($, ["Реестровый номер", "Номер закупки"], structuredValues),
+      options?.fallbackExternalId,
+      extractRegistrationNumber(detailUrl),
+      readPageTitle($)
+    ].map(normalizeExternalIdCandidate).find(Boolean) ?? "unknown";
 
   const title =
     findFirstValue($, TITLE_LABELS, structuredValues) ??
@@ -385,11 +386,35 @@ function getDetailUrlPriority(url: string): number {
 }
 
 function extractRegistrationNumber(value: string): string | undefined {
+  const decodedValue = safeDecode(value);
   const match =
-    value.match(/regNumber=([0-9]+)/i) ??
-    value.match(/reestrNumber=([0-9]+)/i) ??
-    value.match(/\b([0-9]{11,30})\b/);
+    decodedValue.match(/regNumber=([0-9]+)/i) ??
+    decodedValue.match(/reestrNumber=([0-9]+)/i) ??
+    decodedValue.match(/[?&]id=([^&#]+)/i) ??
+    decodedValue.match(/\b([0-9]{11,30})\b/);
   return match?.[1];
+}
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function normalizeExternalIdCandidate(value: string | undefined): string | undefined {
+  const cleaned = cleanText(value);
+
+  if (!cleaned) {
+    return undefined;
+  }
+
+  if (cleaned.length > 120 || /\s/.test(cleaned)) {
+    return undefined;
+  }
+
+  return cleaned;
 }
 
 function parseRussianDateTime(value: string | undefined): string | undefined {

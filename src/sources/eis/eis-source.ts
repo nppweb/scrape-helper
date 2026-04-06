@@ -126,7 +126,10 @@ export function createEisSourceAdapter(config: EisSourceConfig): SourceAdapter {
             }
           );
 
-          if (!isRelevantNppItem(notice)) {
+          if (!isRelevantNppItem(notice, {
+            matchedQuery: link.matchedQuery,
+            sourceType: config.sourceType
+          })) {
             context.logger.debug(
               {
                 source: config.code,
@@ -185,14 +188,19 @@ function isRelevantNppItem(
     description?: string;
     customerName?: string;
     supplierName?: string;
+  },
+  options?: {
+    matchedQuery?: string;
+    sourceType?: "procurement" | "contract";
   }
 ): boolean {
   const title = normalize(notice.title);
   const customer = normalize(notice.customerName);
   const supplier = normalize(notice.supplierName);
+  const matchedQuery = normalize(options?.matchedQuery);
 
   if (!title && !customer && !supplier) {
-    return false;
+    return Boolean(options?.sourceType === "contract" && matchedQuery);
   }
 
   if (title && NPP_EXCLUDED_TITLE_TOKENS.some((token) => title.includes(token))) {
@@ -218,6 +226,10 @@ function isRelevantNppItem(
     customer.includes("росатом") &&
     NPP_STATION_TOKENS.some((token) => title.includes(token))
   ) {
+    return true;
+  }
+
+  if (options?.sourceType === "contract" && matchedQuery) {
     return true;
   }
 
