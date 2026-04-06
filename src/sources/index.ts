@@ -84,6 +84,10 @@ export function resolveEnabledSources(config: SourceResolverConfig): EnabledSour
 }
 
 function createSourceFactories(config: SourceResolverConfig): Record<string, SourceFactory> {
+  const contractSearchTerms = buildContractSearchTerms(config.EIS_SEARCH_TERMS);
+  const contract223MaxPages = Math.min(config.EIS_MAX_PAGES, 20);
+  const contract223MaxItems = Math.min(config.EIS_CONTRACTS_223_MAX_ITEMS, 240);
+
   return {
     easuz: () =>
       createEasuzSourceAdapter({
@@ -138,7 +142,7 @@ function createSourceFactories(config: SourceResolverConfig): Record<string, Sou
         detailLinkPatterns: ["/epz/contract/contractCard/common-info.html"],
         maxPages: config.EIS_MAX_PAGES,
         searchUrl: config.EIS_CONTRACTS_SEARCH_URL,
-        searchTerms: config.EIS_SEARCH_TERMS,
+        searchTerms: contractSearchTerms,
         maxItems: config.EIS_CONTRACTS_MAX_ITEMS,
         portalName: "ЕИС / реестр контрактов 44-ФЗ",
         publishDateFrom: config.EIS_PUBLISH_DATE_FROM,
@@ -152,10 +156,10 @@ function createSourceFactories(config: SourceResolverConfig): Record<string, Sou
         name: "ЕИС / реестр договоров 223-ФЗ",
         baseUrl: config.EIS_BASE_URL,
         detailLinkPatterns: ["/epz/contractfz223/card/contract-info.html"],
-        maxPages: config.EIS_MAX_PAGES,
+        maxPages: contract223MaxPages,
         searchUrl: config.EIS_CONTRACTS_223_SEARCH_URL,
-        searchTerms: config.EIS_SEARCH_TERMS,
-        maxItems: config.EIS_CONTRACTS_223_MAX_ITEMS,
+        searchTerms: contractSearchTerms,
+        maxItems: contract223MaxItems,
         portalName: "ЕИС / реестр договоров 223-ФЗ",
         publishDateFrom: config.EIS_PUBLISH_DATE_FROM,
         recordsPerPage: config.EIS_RECORDS_PER_PAGE,
@@ -170,4 +174,20 @@ function createSourceFactories(config: SourceResolverConfig): Record<string, Sou
         userAgent: config.RNP_USER_AGENT
       })
   };
+}
+
+function buildContractSearchTerms(searchTerms: string[]): string[] {
+  const filteredTerms = searchTerms.filter((term) => {
+    const normalized = term.trim().toLowerCase();
+
+    return (
+      normalized.includes("росэнергоатом") ||
+      normalized.includes("российский концерн по производству электрической и тепловой энергии на атомных станциях") ||
+      normalized.includes("росатом") ||
+      normalized.includes("аэс-авто") ||
+      normalized.includes("аэс-сервис")
+    );
+  });
+
+  return filteredTerms.length > 0 ? filteredTerms : searchTerms;
 }
