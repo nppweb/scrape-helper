@@ -27,6 +27,10 @@ type SourceResolverConfig = Pick<
   | "EIS_USER_AGENT"
   | "ENABLED_SOURCES"
   | "FEDRESURS_BASE_URL"
+  | "FEDRESURS_API_LOGIN"
+  | "FEDRESURS_API_LOOKBACK_DAYS"
+  | "FEDRESURS_API_PASSWORD"
+  | "FEDRESURS_API_URL"
   | "FEDRESURS_MAX_ITEMS"
   | "FEDRESURS_SEARCH_URL"
   | "FEDRESURS_USER_AGENT"
@@ -100,6 +104,10 @@ function createSourceFactories(config: SourceResolverConfig): Record<string, Sou
     fedresurs: () =>
       createFedresursSourceAdapter({
         baseUrl: config.FEDRESURS_BASE_URL,
+        apiUrl: config.FEDRESURS_API_URL,
+        apiLogin: config.FEDRESURS_API_LOGIN,
+        apiPassword: config.FEDRESURS_API_PASSWORD,
+        apiLookbackDays: config.FEDRESURS_API_LOOKBACK_DAYS,
         searchUrl: config.FEDRESURS_SEARCH_URL,
         maxItems: config.FEDRESURS_MAX_ITEMS,
         userAgent: config.FEDRESURS_USER_AGENT

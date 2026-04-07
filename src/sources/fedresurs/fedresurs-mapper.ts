@@ -3,9 +3,18 @@ import type { FedresursParsedMessage } from "./types";
 
 export function mapFedresursMessageToCollectedRecord(input: {
   message: FedresursParsedMessage;
-  html: string;
+  rawDocument: string;
+  artifactKind?: "RAW_HTML" | "RAW_JSON";
+  artifactContentType?: string;
+  artifactFileExtension?: "html" | "json";
 }): CollectedRawRecord {
-  const { message, html } = input;
+  const {
+    message,
+    rawDocument,
+    artifactKind = "RAW_HTML",
+    artifactContentType = "text/html; charset=utf-8",
+    artifactFileExtension = "html"
+  } = input;
 
   return {
     url: message.externalUrl,
@@ -34,10 +43,10 @@ export function mapFedresursMessageToCollectedRecord(input: {
     },
     artifacts: [
       {
-        kind: "RAW_HTML",
-        fileName: `fedresurs-${message.externalId}.html`,
-        contentType: "text/html; charset=utf-8",
-        body: html,
+        kind: artifactKind,
+        fileName: `fedresurs-${message.externalId}.${artifactFileExtension}`,
+        contentType: artifactContentType,
+        body: rawDocument,
         metadata: {
           externalId: message.externalId,
           externalUrl: message.externalUrl,

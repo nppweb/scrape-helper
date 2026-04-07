@@ -85,6 +85,16 @@ const envSchema = z.object({
     .string()
     .default("NPPWEB procurement monitor/1.0 (+https://example.local/nppweb)"),
   FEDRESURS_BASE_URL: z.string().url().default("https://bankrot.fedresurs.ru"),
+  FEDRESURS_API_URL: z.string().url().optional(),
+  FEDRESURS_API_LOGIN: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  FEDRESURS_API_PASSWORD: z
+    .string()
+    .optional()
+    .transform((value) => value?.trim() || undefined),
+  FEDRESURS_API_LOOKBACK_DAYS: z.coerce.number().int().positive().max(31).default(31),
   FEDRESURS_SEARCH_URL: z.string().url().default("https://bankrot.fedresurs.ru/Messages.aspx"),
   FEDRESURS_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
   FEDRESURS_USER_AGENT: z
