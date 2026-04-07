@@ -1,6 +1,5 @@
 export type RnpClientConfig = {
   baseUrl: string;
-  searchUrl: string;
   maxItems: number;
   userAgent: string;
 };
@@ -9,6 +8,7 @@ export type RnpSearchResultLink = {
   externalId: string;
   detailUrl: string;
   supplierName?: string;
+  searchCategory?: string;
 };
 
 export type RnpParsedEntry = {
@@ -17,6 +17,7 @@ export type RnpParsedEntry = {
   sourcePageUrl: string;
   sourceName: "rnp";
   sourceType: "registry";
+  searchCategory?: string;
   supplierName?: string;
   supplierInn?: string;
   supplierOgrn?: string;

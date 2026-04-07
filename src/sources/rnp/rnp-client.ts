@@ -7,8 +7,12 @@ import type { RnpClientConfig, RnpParsedEntry, RnpSearchResultLink } from "./typ
 export class RnpClient {
   constructor(private readonly config: RnpClientConfig) {}
 
-  async listEntryLinks(logger: Logger, requestTimeoutMs: number): Promise<RnpSearchResultLink[]> {
-    const html = await this.fetchText(this.config.searchUrl, logger, requestTimeoutMs, "search page");
+  async listEntryLinksFromUrl(
+    searchUrl: string,
+    logger: Logger,
+    requestTimeoutMs: number
+  ): Promise<RnpSearchResultLink[]> {
+    const html = await this.fetchText(searchUrl, logger, requestTimeoutMs, "search page");
     return parseRnpSearchResults(html, {
       baseUrl: this.config.baseUrl,
       maxItems: this.config.maxItems

@@ -29,6 +29,37 @@ describe("parseFedresursSearchResults", () => {
       title: "Сообщение о введении процедуры наблюдения"
     });
   });
+
+  it("extracts detail links embedded in javascript attributes", () => {
+    const html = `
+      <html>
+        <body>
+          <button onclick="window.location.href='/MessageWindow.aspx?ID=22334455&amp;from=search'">
+            Сообщение о смене конкурсного управляющего
+          </button>
+          <div data-url="/TradeLotInfo.aspx?ID=99887766&type=Auction">Торги</div>
+        </body>
+      </html>
+    `;
+
+    const results = parseFedresursSearchResults(html, {
+      baseUrl: "https://bankrot.fedresurs.ru",
+      maxItems: 10
+    });
+
+    expect(results).toEqual([
+      {
+        externalId: "22334455",
+        detailUrl: "https://bankrot.fedresurs.ru/MessageWindow.aspx?ID=22334455&from=search",
+        title: "Сообщение о смене конкурсного управляющего"
+      },
+      {
+        externalId: "99887766",
+        detailUrl: "https://bankrot.fedresurs.ru/TradeLotInfo.aspx?ID=99887766&type=Auction",
+        title: "Торги"
+      }
+    ]);
+  });
 });
 
 describe("parseFedresursDetailPage", () => {

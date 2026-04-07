@@ -42,6 +42,7 @@ type SourceResolverConfig = Pick<
   | "RNP_BASE_URL"
   | "RNP_MAX_ITEMS"
   | "RNP_SEARCH_URL"
+  | "RNP_SEARCH_URLS"
   | "RNP_USER_AGENT"
 >;
 
@@ -169,7 +170,7 @@ function createSourceFactories(config: SourceResolverConfig): Record<string, Sou
     rnp: () =>
       createRnpSourceAdapter({
         baseUrl: config.RNP_BASE_URL,
-        searchUrl: config.RNP_SEARCH_URL,
+        searchUrls: config.RNP_SEARCH_URLS.length > 0 ? config.RNP_SEARCH_URLS : [config.RNP_SEARCH_URL],
         maxItems: config.RNP_MAX_ITEMS,
         userAgent: config.RNP_USER_AGENT
       })

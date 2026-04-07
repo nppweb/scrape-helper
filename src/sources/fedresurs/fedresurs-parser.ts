@@ -28,29 +28,45 @@ export function parseFedresursSearchResults(
 ): FedresursSearchResultLink[] {
   const $ = load(html);
   const links = new Map<string, FedresursSearchResultLink>();
+  const addLink = (rawValue: string | undefined, title?: string) => {
+    if (!rawValue) {
+      return;
+    }
+
+    const candidates = extractDetailUrlCandidates(rawValue);
+
+    for (const candidateUrl of candidates) {
+      const resolvedUrl = resolveUrl(options.baseUrl, candidateUrl);
+      if (!resolvedUrl || !isLikelyDetailUrl(resolvedUrl)) {
+        continue;
+      }
+
+      const externalId = extractExternalId(resolvedUrl) ?? extractDigits(title ?? "");
+      if (!externalId || links.has(externalId)) {
+        continue;
+      }
+
+      links.set(externalId, {
+        externalId,
+        detailUrl: resolvedUrl,
+        title: cleanText(title) || undefined
+      });
+    }
+  };
 
   $("a[href]").each((_index, element) => {
-    const href = $(element).attr("href");
-    if (!href) {
-      return;
-    }
-
-    const resolvedUrl = resolveUrl(options.baseUrl, href);
-    if (!resolvedUrl || !isLikelyDetailUrl(resolvedUrl)) {
-      return;
-    }
-
-    const externalId = extractExternalId(resolvedUrl) ?? extractDigits($(element).text());
-    if (!externalId || links.has(externalId)) {
-      return;
-    }
-
-    links.set(externalId, {
-      externalId,
-      detailUrl: resolvedUrl,
-      title: cleanText($(element).text()) || undefined
-    });
+    addLink($(element).attr("href"), $(element).text());
   });
+
+  $("[data-href], [data-url], [onclick]").each((_index, element) => {
+    addLink($(element).attr("data-href"), $(element).text());
+    addLink($(element).attr("data-url"), $(element).text());
+    addLink($(element).attr("onclick"), $(element).text());
+  });
+
+  for (const fallbackUrl of extractDetailUrlCandidates(html)) {
+    addLink(fallbackUrl);
+  }
 
   return Array.from(links.values()).slice(0, options.maxItems);
 }
@@ -208,6 +224,18 @@ function resolveUrl(baseUrl: string, href: string): string | null {
 
 function isLikelyDetailUrl(url: string): boolean {
   return SEARCH_LINK_PATTERNS.some((pattern) => url.includes(pattern));
+}
+
+function extractDetailUrlCandidates(value: string): string[] {
+  const normalized = value
+    .replace(/&amp;/gi, "&")
+    .replace(/\\u0026/gi, "&")
+    .replace(/\\\//g, "/");
+  const matches = normalized.match(
+    /(?:https?:\/\/[^\s"'<>]+\/|\/)?(?:MessageWindow|TradeLotInfo)\.aspx(?:\?[^\s"'<>]+)?/gi
+  );
+
+  return matches ?? [];
 }
 
 function extractExternalId(value: string): string | undefined {

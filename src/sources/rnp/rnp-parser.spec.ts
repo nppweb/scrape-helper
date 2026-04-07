@@ -24,6 +24,39 @@ describe("rnp-parser", () => {
     });
   });
 
+  it("extracts entry links from javascript-driven result cards", () => {
+    const html = `
+      <html>
+        <body>
+          <div data-url="/epz/dishonestsupplier/view/info.html?dishonestSupplierId=22334455">
+            ООО "Поставщик 223"
+          </div>
+          <button onclick="window.location='/epz/dishonestsupplier/view/card.html?id=99887766&amp;from=list'">
+            ИП Поставщик 44-ФЗ
+          </button>
+        </body>
+      </html>
+    `;
+
+    const links = parseRnpSearchResults(html, {
+      baseUrl: "https://zakupki.gov.ru",
+      maxItems: 10
+    });
+
+    expect(links).toEqual([
+      {
+        externalId: "22334455",
+        detailUrl: "https://zakupki.gov.ru/epz/dishonestsupplier/view/info.html?dishonestSupplierId=22334455",
+        supplierName: 'ООО "Поставщик 223"'
+      },
+      {
+        externalId: "99887766",
+        detailUrl: "https://zakupki.gov.ru/epz/dishonestsupplier/view/card.html?id=99887766&from=list",
+        supplierName: "ИП Поставщик 44-ФЗ"
+      }
+    ]);
+  });
+
   it("parses rnp detail fields from public entry page", () => {
     const html = readFixture("detail.html");
 

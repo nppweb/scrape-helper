@@ -25,6 +25,12 @@ export function createFedresursSourceAdapter(config: FedresursSourceConfig): Sou
       );
 
       const links = await client.listMessageLinks(context.logger, context.requestTimeoutMs);
+      if (links.length === 0) {
+        throw new Error(
+          "Федресурс не вернул ни одной ссылки на сообщения. Вероятно, изменилась выдача или доступ к площадке ограничен."
+        );
+      }
+
       const records: CollectedRawRecord[] = [];
 
       for (const link of links) {
@@ -51,6 +57,24 @@ export function createFedresursSourceAdapter(config: FedresursSourceConfig): Sou
             "fedresurs detail fetch failed; skipping item"
           );
         }
+      }
+
+      if (records.length === 0) {
+        throw new Error(
+          "Федресурс вернул ссылки на сообщения, но не удалось разобрать ни одну карточку."
+        );
+      }
+
+      if (records.length < links.length) {
+        context.logger.warn(
+          {
+            source: "fedresurs",
+            searchResults: links.length,
+            itemsCollected: records.length,
+            itemsSkipped: links.length - records.length
+          },
+          "fedresurs collected partially"
+        );
       }
 
       context.logger.info(

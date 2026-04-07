@@ -15,6 +15,7 @@ export function mapRnpEntryToCollectedRecord(input: {
       externalId: entry.externalId,
       externalUrl: entry.externalUrl,
       sourcePageUrl: entry.sourcePageUrl,
+      searchCategory: entry.searchCategory,
       supplierName: entry.supplierName,
       supplierInn: entry.supplierInn,
       supplierOgrn: entry.supplierOgrn,
@@ -30,7 +31,8 @@ export function mapRnpEntryToCollectedRecord(input: {
     },
     metadata: {
       adapter: "rnp",
-      sourceType: entry.sourceType
+      sourceType: entry.sourceType,
+      searchCategory: entry.searchCategory
     },
     artifacts: [
       {

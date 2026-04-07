@@ -153,6 +153,15 @@ const envSchema = z.object({
     .default(
       "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?searchString=&recordsPerPage=_10"
     ),
+  RNP_SEARCH_URLS: z
+    .string()
+    .default(
+      [
+        "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?morphology=on&search-filter=%D0%94%D0%B0%D1%82%D0%B5+%D1%80%D0%B0%D0%B7%D0%BC%D0%B5%D1%89%D0%B5%D0%BD%D0%B8%D1%8F&sortBy=UPDATE_DATE&pageNumber=1&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false&fz44=on",
+        "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?morphology=on&search-filter=%D0%94%D0%B0%D1%82%D0%B5+%D1%80%D0%B0%D0%B7%D0%BC%D0%B5%D1%89%D0%B5%D0%BD%D0%B8%D1%8F&sortBy=UPDATE_DATE&pageNumber=1&sortDirection=false&recordsPerPage=_10&showLotsInfoHidden=false&fz223=on"
+      ].join("\n")
+    )
+    .transform((value) => parseStringList(value, [])),
   RNP_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
   RNP_USER_AGENT: z
     .string()

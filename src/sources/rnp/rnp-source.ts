@@ -4,7 +4,7 @@ import { mapRnpEntryToCollectedRecord } from "./rnp-mapper";
 
 type RnpSourceConfig = {
   baseUrl: string;
-  searchUrl: string;
+  searchUrls: string[];
   maxItems: number;
   userAgent: string;
 };
@@ -12,7 +12,6 @@ type RnpSourceConfig = {
 export function createRnpSourceAdapter(config: RnpSourceConfig): SourceAdapter {
   const client = new RnpClient({
     baseUrl: config.baseUrl,
-    searchUrl: config.searchUrl,
     maxItems: config.maxItems,
     userAgent: config.userAgent
   });
@@ -23,33 +22,68 @@ export function createRnpSourceAdapter(config: RnpSourceConfig): SourceAdapter {
     async collect(context) {
       context.logger.info(
         {
-          searchUrl: config.searchUrl,
+          searchUrls: config.searchUrls,
           maxItems: config.maxItems
         },
         "rnp fetch started"
       );
 
-      const links = await client.listEntryLinks(context.logger, context.requestTimeoutMs);
+      const links = new Map<string, Awaited<ReturnType<RnpClient["listEntryLinksFromUrl"]>>[number]>();
+
+      for (const searchUrl of config.searchUrls) {
+        const searchCategory = resolveSearchCategory(searchUrl);
+        const searchLinks = await client.listEntryLinksFromUrl(
+          searchUrl,
+          context.logger.child({ source: "rnp", searchCategory, searchUrl }),
+          context.requestTimeoutMs
+        );
+
+        for (const link of searchLinks) {
+          if (!links.has(link.externalId)) {
+            links.set(link.externalId, {
+              ...link,
+              searchCategory
+            });
+          }
+        }
+      }
+
+      if (links.size === 0) {
+        throw new Error(
+          "РНП не вернул ни одной записи. Вероятно, изменилась выдача поиска, фильтры или доступ к zakupki.gov.ru ограничен."
+        );
+      }
+
       const records: CollectedRawRecord[] = [];
 
-      for (const link of links) {
+      for (const link of links.values()) {
         try {
           const { html, entry } = await client.fetchEntry(
             link.detailUrl,
             context.logger.child({
               source: "rnp",
+              searchCategory: link.searchCategory,
               externalId: link.externalId,
               detailUrl: link.detailUrl
             }),
             context.requestTimeoutMs
           );
 
-          records.push(mapRnpEntryToCollectedRecord({ entry, html }));
+          records.push(
+            mapRnpEntryToCollectedRecord({
+              entry: {
+                ...entry,
+                searchCategory: link.searchCategory
+              },
+              html
+            })
+          );
         } catch (error) {
           context.logger.warn(
             {
               err: error,
               source: "rnp",
+              searchCategory: link.searchCategory,
               externalId: link.externalId,
               detailUrl: link.detailUrl
             },
@@ -58,11 +92,29 @@ export function createRnpSourceAdapter(config: RnpSourceConfig): SourceAdapter {
         }
       }
 
+      if (records.length === 0) {
+        throw new Error(
+          "РНП вернул ссылки на записи, но не удалось разобрать ни одну карточку поставщика."
+        );
+      }
+
+      if (records.length < links.size) {
+        context.logger.warn(
+          {
+            source: "rnp",
+            searchResults: links.size,
+            itemsCollected: records.length,
+            itemsSkipped: links.size - records.length
+          },
+          "rnp collected partially"
+        );
+      }
+
       context.logger.info(
         {
           source: "rnp",
           itemsCollected: records.length,
-          searchResults: links.length
+          searchResults: links.size
         },
         "rnp entries collected"
       );
@@ -70,4 +122,16 @@ export function createRnpSourceAdapter(config: RnpSourceConfig): SourceAdapter {
       return records;
     }
   };
+}
+
+function resolveSearchCategory(searchUrl: string): string {
+  if (searchUrl.includes("fz223=on")) {
+    return "223-fz";
+  }
+
+  if (searchUrl.includes("fz44=on")) {
+    return "44-fz";
+  }
+
+  return "all";
 }

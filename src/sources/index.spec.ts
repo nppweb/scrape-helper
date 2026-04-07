@@ -47,6 +47,10 @@ describe("resolveEnabledSources", () => {
       RNP_BASE_URL: "https://zakupki.gov.ru",
       RNP_SEARCH_URL:
         "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?searchString=&recordsPerPage=_10",
+      RNP_SEARCH_URLS: [
+        "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?fz44=on&recordsPerPage=_10",
+        "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?fz223=on&recordsPerPage=_10"
+      ],
       RNP_MAX_ITEMS: 5,
       RNP_USER_AGENT: "NPPWEB/1.0 (+https://example.test)"
     });
@@ -101,6 +105,10 @@ describe("resolveEnabledSources", () => {
       RNP_BASE_URL: "https://zakupki.gov.ru",
       RNP_SEARCH_URL:
         "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?searchString=&recordsPerPage=_10",
+      RNP_SEARCH_URLS: [
+        "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?fz44=on&recordsPerPage=_10",
+        "https://zakupki.gov.ru/epz/dishonestsupplier/search/results.html?fz223=on&recordsPerPage=_10"
+      ],
       RNP_MAX_ITEMS: 5,
       RNP_USER_AGENT: "NPPWEB/1.0 (+https://example.test)"
     });
