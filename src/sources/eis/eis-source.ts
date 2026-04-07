@@ -1,6 +1,7 @@
 import type { CollectedRawRecord, SourceAdapter } from "../adapter";
 import { EisClient } from "./eis-client";
 import { mapEisNoticeToCollectedRecord } from "./eis-mapper";
+import { resolveNppStationNameFromText } from "./npp-stations";
 
 const NPP_ENTITY_TOKENS = [
   "росэнергоатом",
@@ -11,29 +12,6 @@ const NPP_ENTITY_TOKENS = [
   "курская аэс-сервис",
   "ленинградская аэс-авто",
   "смоленская аэс-сервис"
-] as const;
-
-const NPP_STATION_TOKENS = [
-  "балаковская атомная станция",
-  "балаковская аэс",
-  "белоярская атомная станция",
-  "белоярская аэс",
-  "билибинская атомная станция",
-  "билибинская аэс",
-  "калининская атомная станция",
-  "калининская аэс",
-  "кольская атомная станция",
-  "кольская аэс",
-  "курская атомная станция",
-  "курская аэс",
-  "ленинградская атомная станция",
-  "ленинградская аэс",
-  "нововоронежская атомная станция",
-  "нововоронежская аэс",
-  "ростовская атомная станция",
-  "ростовская аэс",
-  "смоленская атомная станция",
-  "смоленская аэс"
 ] as const;
 
 const NPP_OPERATIONAL_TITLE_TOKENS = [
@@ -211,7 +189,7 @@ function isRelevantNppItem(
     return true;
   }
 
-  if (matchesAny(title, NPP_STATION_TOKENS)) {
+  if (resolveNppStationNameFromText([notice.title, notice.description, options?.matchedQuery])) {
     return true;
   }
 
@@ -224,7 +202,7 @@ function isRelevantNppItem(
 
   if (
     customer.includes("росатом") &&
-    NPP_STATION_TOKENS.some((token) => title.includes(token))
+    Boolean(resolveNppStationNameFromText([notice.title, notice.description]))
   ) {
     return true;
   }

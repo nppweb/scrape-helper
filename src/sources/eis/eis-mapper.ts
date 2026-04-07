@@ -1,48 +1,6 @@
 import type { CollectedRawRecord } from "../adapter";
+import { resolveNppStationNameFromText } from "./npp-stations";
 import type { EisParsedNotice } from "./types";
-
-const NPP_FOCUS_MATCHERS = [
-  {
-    canonical: "Балаковская атомная станция",
-    variants: ["балаковская атомная станция", "балаковская аэс", "балаковская аэс-авто"]
-  },
-  {
-    canonical: "Белоярская атомная станция",
-    variants: ["белоярская атомная станция", "белоярская аэс"]
-  },
-  {
-    canonical: "Билибинская атомная станция",
-    variants: ["билибинская атомная станция", "билибинская аэс"]
-  },
-  {
-    canonical: "Калининская атомная станция",
-    variants: ["калининская атомная станция", "калининская аэс", "калининская аэс-сервис"]
-  },
-  {
-    canonical: "Кольская атомная станция",
-    variants: ["кольская атомная станция", "кольская аэс"]
-  },
-  {
-    canonical: "Курская атомная станция",
-    variants: ["курская атомная станция", "курская аэс", "курская аэс-сервис"]
-  },
-  {
-    canonical: "Ленинградская атомная станция",
-    variants: ["ленинградская атомная станция", "ленинградская аэс", "ленинградская аэс-авто"]
-  },
-  {
-    canonical: "Нововоронежская атомная станция",
-    variants: ["нововоронежская атомная станция", "нововоронежская аэс"]
-  },
-  {
-    canonical: "Ростовская атомная станция",
-    variants: ["ростовская атомная станция", "ростовская аэс"]
-  },
-  {
-    canonical: "Смоленская атомная станция",
-    variants: ["смоленская атомная станция", "смоленская аэс", "смоленская аэс-сервис"]
-  }
-] as const;
 
 export function mapEisNoticeToCollectedRecord(input: {
   notice: EisParsedNotice;
@@ -117,22 +75,11 @@ function extractTargetStationName(
   notice: Pick<EisParsedNotice, "title" | "description" | "customerName" | "supplierName">,
   matchedQuery?: string
 ): string | undefined {
-  const haystack = [
+  return resolveNppStationNameFromText([
     notice.title,
     notice.description,
     notice.customerName,
     notice.supplierName,
     matchedQuery
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (!haystack) {
-    return undefined;
-  }
-
-  return NPP_FOCUS_MATCHERS.find((term) =>
-    term.variants.some((variant) => haystack.includes(variant))
-  )?.canonical;
+  ]);
 }
