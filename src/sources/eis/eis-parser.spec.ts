@@ -361,4 +361,47 @@ describe("eis-parser", () => {
       currency: "RUB"
     });
   });
+
+  it("drops supplier names that are actually EIS footer or navigation boilerplate", () => {
+    const html = `
+      <html>
+        <body>
+          <div class="blockInfo">
+            <section class="blockInfo__section section">
+              <span class="section__title">Предмет контракта</span>
+              <span class="section__info">Поставка комплектующих для Смоленской АЭС</span>
+            </section>
+            <section class="blockInfo__section section">
+              <span class="section__title">Заказчик</span>
+              <span class="section__info">АО Концерн Росэнергоатом</span>
+            </section>
+            <section class="blockInfo__section section">
+              <span class="section__title">Поставщик</span>
+              <span class="section__info">
+                Поделитесь мнением о качестве работы единой информационной системы
+                Перейти к опросу Система торгов Сбербанк-АСТ SBERBANK-AST.RU
+                Единая электронная торговая площадка ROSELTORG.RU
+                Техническая поддержка Ваши идеи по улучшению сайта
+              </span>
+            </section>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const notice = parseEisNoticePage(
+      html,
+      "https://zakupki.gov.ru/epz/contract/contractCard/common-info.html?reestrNumber=2667117311526000031",
+      {
+        sourceName: "eis_contracts",
+        sourceType: "contract"
+      }
+    );
+
+    expect(notice).toMatchObject({
+      externalId: "2667117311526000031",
+      customerName: "АО Концерн Росэнергоатом",
+      supplierName: undefined
+    });
+  });
 });

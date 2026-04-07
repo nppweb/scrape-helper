@@ -63,6 +63,31 @@ const PRICE_LABELS = [
 const CURRENCY_LABELS = ["Валюта", "Код валюты"];
 
 const REGION_LABELS = ["Субъект РФ", "Регион", "Место поставки товара, выполнения работы или оказания услуги"];
+const EIS_BOILERPLATE_MARKERS = [
+  "поделитесь мнением о качестве работы",
+  "единая информационная система в сфере закупок",
+  "официальные ресурсы",
+  "техническая поддержка",
+  "ваши идеи по улучшению сайта",
+  "отчет о посещаемости",
+  "карта сайта",
+  "часто задаваемые вопросы",
+  "новости поставщикам заказчикам органам контроля",
+  "версия hotfix",
+  "федеральное казначейство"
+];
+const EIS_PLATFORM_DOMAIN_MARKERS = [
+  "sberbank-ast.ru",
+  "roseltorg.ru",
+  "etp.zakazrf.ru",
+  "rts-tender.ru",
+  "fabrikant.ru",
+  "gz.lot-online.ru",
+  "tektorg.ru",
+  "etpgpb.ru",
+  "astgoz.ru",
+  "etprf.ru"
+];
 
 export function parseEisSearchResults(
   html: string,
@@ -132,8 +157,8 @@ export function parseEisNoticePage(
     findMetaContent($, "description") ??
     undefined;
 
-  const customerName = findFirstValue($, CUSTOMER_LABELS, structuredValues) ?? undefined;
-  const supplierName = findFirstValue($, SUPPLIER_LABELS, structuredValues) ?? undefined;
+  const customerName = sanitizePartyName(findFirstValue($, CUSTOMER_LABELS, structuredValues));
+  const supplierName = sanitizePartyName(findFirstValue($, SUPPLIER_LABELS, structuredValues));
   const status = findFirstValue($, STATUS_LABELS, structuredValues) ?? undefined;
   const publishedAt = parseRussianDateTime(findFirstValue($, PUBLISHED_AT_LABELS, structuredValues));
   const applicationDeadline = parseRussianDateTime(
@@ -263,7 +288,9 @@ function getValueFromSameRow($: CheerioAPI, element: Cheerio<AnyNode>): string |
     }
   }
 
-  const wrapper = element.closest("dl, .cardMainInfo, .common-info__content, .row");
+  const wrapper = element.closest(
+    "dl, .cardMainInfo__section, .blockInfo__section, .price-block, .data-block, .common-info__content"
+  );
   if (wrapper.length) {
     const text = cleanText(wrapper.text());
     if (text) {
@@ -478,6 +505,33 @@ function sanitizeRegion(value: string | undefined): string | undefined {
     cleaned.length > 120 ||
     cleaned.includes("Официальный сайт единой информационной системы") ||
     cleaned.includes("контрактной системе в сфере закупок")
+  ) {
+    return undefined;
+  }
+
+  return cleaned;
+}
+
+function sanitizePartyName(value: string | undefined): string | undefined {
+  const cleaned = cleanText(value);
+
+  if (!cleaned) {
+    return undefined;
+  }
+
+  const normalized = normalizeText(cleaned);
+  const urlMatches = cleaned.match(/\b(?:https?:\/\/|www\.|[a-z0-9.-]+\.[a-z]{2,})/gi) ?? [];
+  const hasBoilerplateMarker = EIS_BOILERPLATE_MARKERS.some((marker) => normalized.includes(marker));
+  const hasPlatformNoise =
+    EIS_PLATFORM_DOMAIN_MARKERS.filter((marker) => normalized.includes(marker)).length >= 2;
+
+  if (
+    cleaned.length > 220 ||
+    urlMatches.length >= 3 ||
+    hasBoilerplateMarker ||
+    hasPlatformNoise ||
+    normalized.includes("официальный сайт единой информационной системы") ||
+    normalized.includes("контрактной системе в сфере закупок")
   ) {
     return undefined;
   }
