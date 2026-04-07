@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  parseFedresursApiMessage,
   parseFedresursDetailPage,
   parseFedresursSearchResults
 } from "./fedresurs-parser";
@@ -82,6 +83,43 @@ describe("parseFedresursDetailPage", () => {
     expect(message.caseNumber).toBe("А40-12345/2026");
     expect(message.courtName).toBe("Арбитражный суд города Москвы");
     expect(message.description).toContain("процедуру наблюдения");
+    expect(message.checksum).toHaveLength(64);
+  });
+});
+
+describe("parseFedresursApiMessage", () => {
+  it("maps official api payload into parser fields", () => {
+    const message = parseFedresursApiMessage(
+      {
+        guid: "2133d803-3d1f-7639-fed4-43e183df196c",
+        number: "12345678",
+        datePublish: "2026-04-07T12:30:45.000",
+        content:
+          "<p>В отношении должника введена процедура наблюдения.</p><p>Назначен временный управляющий.</p>",
+        type: "Observation",
+        bankruptInfo: {
+          guid: "05b663e5-2d69-4d20-9a53-f85d89fcb212",
+          type: "Company",
+          data: {
+            name: 'ООО "Стройресурс"',
+            inn: "7701234567",
+            ogrn: "1027700123456"
+          }
+        }
+      },
+      { baseUrl: "https://bankrot.fedresurs.ru" }
+    );
+
+    expect(message.externalId).toBe("12345678");
+    expect(message.externalUrl).toBe(
+      "https://bankrot.fedresurs.ru/sfactmessages/2133d803-3d1f-7639-fed4-43e183df196c"
+    );
+    expect(message.messageType).toBe("Observation");
+    expect(message.subjectName).toBe('ООО "Стройресурс"');
+    expect(message.subjectInn).toBe("7701234567");
+    expect(message.subjectOgrn).toBe("1027700123456");
+    expect(message.publishedAt).toBe("2026-04-07T12:30:45+03:00");
+    expect(message.description).toContain("процедура наблюдения");
     expect(message.checksum).toHaveLength(64);
   });
 });

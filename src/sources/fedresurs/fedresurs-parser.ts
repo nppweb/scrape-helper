@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import { load, type CheerioAPI, type Cheerio } from "cheerio";
 import type { AnyNode } from "domhandler";
-import type { FedresursParsedMessage, FedresursSearchResultLink } from "./types";
+import type {
+  FedresursApiMessage,
+  FedresursParsedMessage,
+  FedresursSearchResultLink
+} from "./types";
 
 const SEARCH_LINK_PATTERNS = ["/MessageWindow.aspx", "/TradeLotInfo.aspx"];
 
@@ -105,6 +109,37 @@ export function parseFedresursDetailPage(html: string, detailUrl: string): Fedre
     caseNumber: findFirstValue($, CASE_NUMBER_LABELS),
     courtName: findFirstValue($, COURT_NAME_LABELS),
     checksum: createHash("sha256").update(html).digest("hex")
+  };
+}
+
+export function parseFedresursApiMessage(
+  message: FedresursApiMessage,
+  options: { baseUrl: string }
+): FedresursParsedMessage {
+  const externalId = cleanText(message.number) || message.guid;
+  const externalUrl = resolveUrl(options.baseUrl, `/sfactmessages/${message.guid}`) ?? options.baseUrl;
+  const subject = message.bankruptInfo?.data;
+  const subjectName = buildParticipantName(subject);
+  const description = extractTextFromHtml(message.content);
+  const checksum = createHash("sha256").update(JSON.stringify(message)).digest("hex");
+
+  return {
+    externalId,
+    externalUrl,
+    sourcePageUrl: externalUrl,
+    sourceName: "fedresurs",
+    sourceType: "bankruptcy",
+    messageType: cleanText(message.type) || undefined,
+    subjectName,
+    subjectInn: normalizeIdentifier(subject?.inn ?? undefined),
+    subjectOgrn: normalizeIdentifier(subject?.ogrn ?? subject?.ogrnip ?? undefined),
+    publishedAt: normalizeApiDateTime(message.datePublish),
+    eventDate: normalizeApiDateTime(message.dateEvent),
+    title:
+      cleanText(message.type) ||
+      (cleanText(message.number) ? `Сообщение №${cleanText(message.number)}` : undefined),
+    description,
+    checksum
   };
 }
 
@@ -288,4 +323,49 @@ function normalizeIdentifier(value: string | undefined): string | undefined {
 
   const normalized = value.replace(/[^\d]/g, "");
   return normalized || undefined;
+}
+
+function normalizeApiDateTime(value: string | null | undefined): string | undefined {
+  const normalized = cleanText(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const withoutMs = normalized.replace(/\.\d+/, "");
+  if (/([+-]\d{2}:\d{2}|Z)$/i.test(withoutMs)) {
+    return withoutMs.replace(/Z$/i, "+00:00");
+  }
+
+  return `${withoutMs}+03:00`;
+}
+
+function buildParticipantName(
+  participant: {
+    name?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    middleName?: string | null;
+  } | null | undefined
+): string | undefined {
+  const directName = cleanText(participant?.name);
+  if (directName) {
+    return directName;
+  }
+
+  const fullName = [participant?.lastName, participant?.firstName, participant?.middleName]
+    .map((value) => cleanText(value))
+    .filter(Boolean)
+    .join(" ");
+
+  return fullName || undefined;
+}
+
+function extractTextFromHtml(value: string | null | undefined): string | undefined {
+  const html = cleanText(value);
+  if (!html) {
+    return undefined;
+  }
+
+  const text = cleanText(load(`<div>${html}</div>`).text());
+  return text || html;
 }
