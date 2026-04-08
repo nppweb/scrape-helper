@@ -146,16 +146,18 @@ export function parseEisNoticePage(
       readPageTitle($)
     ].map(normalizeExternalIdCandidate).find(Boolean) ?? "unknown";
 
-  const title =
+  const title = sanitizeNoticeTitle(
     findFirstValue($, TITLE_LABELS, structuredValues) ??
-    readPrimaryHeading($) ??
-    findMetaContent($, "og:title") ??
-    findMetaContent($, "twitter:title");
+      readPrimaryHeading($) ??
+      findMetaContent($, "og:title") ??
+      findMetaContent($, "twitter:title")
+  );
 
-  const description =
+  const description = sanitizeNoticeDescription(
     findFirstValue($, DESCRIPTION_LABELS, structuredValues) ??
-    findMetaContent($, "description") ??
-    undefined;
+      findMetaContent($, "description") ??
+      undefined
+  );
 
   const customerName = sanitizePartyName(findFirstValue($, CUSTOMER_LABELS, structuredValues));
   const supplierName = sanitizePartyName(findFirstValue($, SUPPLIER_LABELS, structuredValues));
@@ -315,12 +317,12 @@ function readPrimaryHeading($: CheerioAPI): string | undefined {
     .first()
     .text();
   const heading = preferredHeading || $("h1, h2").first().text();
-  return cleanText(heading) || undefined;
+  return sanitizeNoticeTitle(heading);
 }
 
 function readPageTitle($: CheerioAPI): string | undefined {
   const title = $("title").first().text();
-  return cleanText(title) || undefined;
+  return sanitizeNoticeTitle(title);
 }
 
 function findMetaContent($: CheerioAPI, name: string): string | undefined {
@@ -398,15 +400,19 @@ function isLikelyEisNoticeUrl(url: string, patterns?: string[]): boolean {
 
 function getDetailUrlPriority(url: string): number {
   if (url.includes("/view/common-info.html")) {
-    return 3;
+    return 5;
   }
 
-  if (url.includes("common-info.html")) {
-    return 2;
+  if (url.includes("common-info.html") || url.includes("contract-info.html")) {
+    return 4;
+  }
+
+  if (url.includes("/documents.html")) {
+    return -2;
   }
 
   if (url.includes("/printForm/")) {
-    return 0;
+    return -3;
   }
 
   return 1;
@@ -512,7 +518,22 @@ function sanitizeRegion(value: string | undefined): string | undefined {
   return cleaned;
 }
 
+function sanitizeNoticeTitle(value: string | undefined): string | undefined {
+  return sanitizeBoilerplateText(value, { maxLength: 400 });
+}
+
+function sanitizeNoticeDescription(value: string | undefined): string | undefined {
+  return sanitizeBoilerplateText(value, { maxLength: 4_000 });
+}
+
 function sanitizePartyName(value: string | undefined): string | undefined {
+  return sanitizeBoilerplateText(value, { maxLength: 220 });
+}
+
+function sanitizeBoilerplateText(
+  value: string | undefined,
+  options?: { maxLength?: number }
+): string | undefined {
   const cleaned = cleanText(value);
 
   if (!cleaned) {
@@ -524,9 +545,10 @@ function sanitizePartyName(value: string | undefined): string | undefined {
   const hasBoilerplateMarker = EIS_BOILERPLATE_MARKERS.some((marker) => normalized.includes(marker));
   const hasPlatformNoise =
     EIS_PLATFORM_DOMAIN_MARKERS.filter((marker) => normalized.includes(marker)).length >= 2;
+  const maxLength = options?.maxLength ?? 220;
 
   if (
-    cleaned.length > 220 ||
+    cleaned.length > maxLength ||
     urlMatches.length >= 3 ||
     hasBoilerplateMarker ||
     hasPlatformNoise ||
