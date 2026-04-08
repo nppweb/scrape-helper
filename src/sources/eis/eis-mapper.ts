@@ -20,7 +20,7 @@ export function mapEisNoticeToCollectedRecord(input: {
     sourceName,
     sourceType
   };
-  const targetStationName = extractTargetStationName(notice, matchedQuery);
+  const targetStationName = extractTargetStationName(notice, sourceType, matchedQuery);
 
   return {
     url: notice.externalUrl,
@@ -73,13 +73,23 @@ export function mapEisNoticeToCollectedRecord(input: {
 
 function extractTargetStationName(
   notice: Pick<EisParsedNotice, "title" | "description" | "customerName" | "supplierName">,
+  sourceType: "procurement" | "contract",
   matchedQuery?: string
 ): string | undefined {
-  return resolveNppStationNameFromText([
+  const directMatch = resolveNppStationNameFromText([
     notice.title,
     notice.description,
     notice.customerName,
-    notice.supplierName,
-    matchedQuery
+    notice.supplierName
   ]);
+
+  if (directMatch) {
+    return directMatch;
+  }
+
+  if (sourceType === "contract") {
+    return resolveNppStationNameFromText([matchedQuery]);
+  }
+
+  return undefined;
 }

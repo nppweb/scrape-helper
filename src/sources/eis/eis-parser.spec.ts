@@ -404,4 +404,61 @@ describe("eis-parser", () => {
       supplierName: undefined
     });
   });
+
+  it("drops boilerplate title when parser lands on EIS documents page or popup-like shell", () => {
+    const html = `
+      <html>
+        <head>
+          <title>
+            Поделитесь мнением о качестве работы единой информационной системы
+            Перейти к опросу Система торгов Сбербанк-АСТ SBERBANK-AST.RU
+            Единая электронная торговая площадка ROSELTORG.RU
+            Техническая поддержка Ваши идеи по улучшению сайта
+          </title>
+        </head>
+        <body>
+          <h1>
+            Поделитесь мнением о качестве работы единой информационной системы
+            Перейти к опросу Система торгов Сбербанк-АСТ SBERBANK-AST.RU
+            Единая электронная торговая площадка ROSELTORG.RU
+            Техническая поддержка Ваши идеи по улучшению сайта
+          </h1>
+        </body>
+      </html>
+    `;
+
+    const notice = parseEisNoticePage(
+      html,
+      "https://zakupki.gov.ru/epz/order/notice/notice223/documents.html?regNumber=32615886957"
+    );
+
+    expect(notice.externalId).toBe("32615886957");
+    expect(notice.title).toBeUndefined();
+    expect(notice.description).toBeUndefined();
+    expect(notice.customerName).toBeUndefined();
+  });
+
+  it("prefers common-info pages over documents pages for the same notice", () => {
+    const html = `
+      <html>
+        <body>
+          <a href="/epz/order/notice/notice223/documents.html?regNumber=32615886957">Документы</a>
+          <a href="/epz/order/notice/notice223/common-info.html?regNumber=32615886957">Карточка</a>
+        </body>
+      </html>
+    `;
+
+    const results = parseEisSearchResults(html, {
+      baseUrl: "https://zakupki.gov.ru",
+      maxItems: 10
+    });
+
+    expect(results).toEqual([
+      {
+        externalId: "32615886957",
+        detailUrl: "https://zakupki.gov.ru/epz/order/notice/notice223/common-info.html?regNumber=32615886957",
+        title: "Карточка"
+      }
+    ]);
+  });
 });

@@ -189,7 +189,14 @@ function isRelevantNppItem(
     return true;
   }
 
-  if (resolveNppStationNameFromText([notice.title, notice.description, options?.matchedQuery])) {
+  if (
+    resolveNppStationNameFromText([
+      notice.title,
+      notice.description,
+      notice.customerName,
+      notice.supplierName
+    ])
+  ) {
     return true;
   }
 
