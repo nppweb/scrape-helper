@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
+import { resolveProxyEnv } from "./proxy-env";
 
 function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
   if (value === undefined) {
@@ -186,4 +187,7 @@ const envSchema = z.object({
   NO_PROXY: z.string().optional()
 });
 
-export const config = envSchema.parse(process.env);
+export const config = envSchema.parse({
+  ...process.env,
+  ...resolveProxyEnv(process.env)
+});
