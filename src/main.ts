@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage } from "node:http";
 import type { Logger } from "pino";
 import { config } from "./config";
-import { configureHttpTransport, fetch } from "./http-client";
+import { configureHttpTransport, fetch, probeOutboundProxy } from "./http-client";
 import { logger } from "./logger";
 import { S3ArtifactStore } from "./artifacts/s3-artifact-store";
 import { createRawEventValidator } from "./contracts/raw-event-validator";
@@ -165,6 +165,7 @@ async function runAdapter(
 
 async function bootstrap(): Promise<void> {
   configureHttpTransport(logger);
+  await probeOutboundProxy(logger);
   await connectPublisher();
   startControlServer();
   await hydrateRuntimeConfig();
