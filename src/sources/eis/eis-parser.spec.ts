@@ -405,6 +405,54 @@ describe("eis-parser", () => {
     });
   });
 
+  it("ignores share-footer text when extracting contract currency", () => {
+    const html = `
+      <html>
+        <body>
+          <div class="cardMainInfo row">
+            <div class="sectionMainInfo borderRight col-9">
+              <div class="sectionMainInfo__body">
+                <div class="cardMainInfo__section">
+                  <span class="cardMainInfo__title">Предмет договора</span>
+                  <span class="cardMainInfo__content">Текущий ремонт объектов Балаковской АЭС-Авто</span>
+                </div>
+              </div>
+            </div>
+            <div class="sectionMainInfo borderRight col-3 colSpaceBetween">
+              <div class="price-block margBot28">
+                <div class="rightBlock__tittle">Цена договора</div>
+                <div class="rightBlock__price">11 201 734 Поделиться</div>
+              </div>
+              <div class="data-block">
+                <div class="rightBlock__tittle">Код валюты</div>
+                <div class="rightBlock__text">Поделиться</div>
+              </div>
+            </div>
+          </div>
+          <div class="blockInfo">
+            <section class="blockInfo__section section">
+              <span class="section__title">Дата заключения договора</span>
+              <span class="section__info">22.09.2025</span>
+            </section>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const notice = parseEisNoticePage(
+      html,
+      "https://zakupki.gov.ru/epz/contractfz223/card/contract-info.html?id=123",
+      {
+        fallbackExternalId: "76439071143250001340000",
+        sourceName: "eis_contracts_223",
+        sourceType: "contract"
+      }
+    );
+
+    expect(notice.initialPrice).toBe(11201734);
+    expect(notice.currency).toBeUndefined();
+  });
+
   it("drops boilerplate title when parser lands on EIS documents page or popup-like shell", () => {
     const html = `
       <html>

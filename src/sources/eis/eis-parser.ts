@@ -497,7 +497,20 @@ function normalizeCurrency(value: string | undefined): string | undefined {
     return "RUB";
   }
 
-  return normalized.split(/\s+/)[0];
+  if (normalized.includes("USD") || normalized.includes("$") || normalized.includes("ДОЛЛАР")) {
+    return "USD";
+  }
+
+  if (normalized.includes("EUR") || normalized.includes("€") || normalized.includes("ЕВРО")) {
+    return "EUR";
+  }
+
+  if (normalized.includes("CNY") || normalized.includes("ЮАН")) {
+    return "CNY";
+  }
+
+  const codeMatch = normalized.match(/\b[A-Z]{3}\b/);
+  return codeMatch?.[0];
 }
 
 function sanitizeRegion(value: string | undefined): string | undefined {
