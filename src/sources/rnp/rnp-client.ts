@@ -1,6 +1,7 @@
 import type { Logger } from "pino";
 import { describeOutboundHttpError, fetch } from "../../http-client";
 import { withRetries } from "../../utils/retry";
+import { buildBrowserLikeHtmlHeaders, describeZakupkiHttpStatus } from "../browser-headers";
 import { parseRnpDetailPage, parseRnpSearchResults } from "./rnp-parser";
 import type { RnpClientConfig, RnpParsedEntry, RnpSearchResultLink } from "./types";
 
@@ -12,7 +13,13 @@ export class RnpClient {
     logger: Logger,
     requestTimeoutMs: number
   ): Promise<RnpSearchResultLink[]> {
-    const html = await this.fetchText(searchUrl, logger, requestTimeoutMs, "search page");
+    const html = await this.fetchText(
+      searchUrl,
+      logger,
+      requestTimeoutMs,
+      "search page",
+      new URL("/", this.config.baseUrl).toString()
+    );
     return parseRnpSearchResults(html, {
       baseUrl: this.config.baseUrl,
       maxItems: this.config.maxItems
@@ -24,7 +31,13 @@ export class RnpClient {
     logger: Logger,
     requestTimeoutMs: number
   ): Promise<{ html: string; entry: RnpParsedEntry }> {
-    const html = await this.fetchText(detailUrl, logger, requestTimeoutMs, "detail page");
+    const html = await this.fetchText(
+      detailUrl,
+      logger,
+      requestTimeoutMs,
+      "detail page",
+      new URL("/", this.config.baseUrl).toString()
+    );
     return {
       html,
       entry: parseRnpDetailPage(html, detailUrl)
@@ -35,7 +48,8 @@ export class RnpClient {
     url: string,
     logger: Logger,
     requestTimeoutMs: number,
-    resourceName: string
+    resourceName: string,
+    referer?: string
   ): Promise<string> {
     return withRetries(
       async () => {
@@ -43,17 +57,17 @@ export class RnpClient {
         try {
           response = await fetch(url, {
             signal: AbortSignal.timeout(requestTimeoutMs),
-            headers: {
-              accept: "text/html,application/xhtml+xml",
-              "user-agent": this.config.userAgent
-            }
+            headers: buildBrowserLikeHtmlHeaders({
+              userAgent: this.config.userAgent,
+              referer
+            })
           });
         } catch (error) {
           throw describeOutboundHttpError(error, url);
         }
 
         if (!response.ok) {
-          throw new Error(`RNP ${resourceName} returned HTTP ${response.status}`);
+          throw new Error(`RNP ${resourceName} ${describeZakupkiHttpStatus(response.status)}`);
         }
 
         return response.text();

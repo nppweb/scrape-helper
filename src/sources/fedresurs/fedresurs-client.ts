@@ -1,6 +1,7 @@
 import type { Logger } from "pino";
 import { describeOutboundHttpError, fetch } from "../../http-client";
 import { withRetries } from "../../utils/retry";
+import { buildBrowserLikeHtmlHeaders, buildBrowserLikeJsonHeaders } from "../browser-headers";
 import {
   parseFedresursApiMessage,
   parseFedresursDetailPage,
@@ -61,7 +62,13 @@ export class FedresursClient {
     logger: Logger,
     requestTimeoutMs: number
   ): Promise<FedresursSearchResultLink[]> {
-    const html = await this.fetchText(this.config.searchUrl, logger, requestTimeoutMs, "search page");
+    const html = await this.fetchText(
+      this.config.searchUrl,
+      logger,
+      requestTimeoutMs,
+      "search page",
+      new URL("/", this.config.baseUrl).toString()
+    );
     return parseFedresursSearchResults(html, {
       baseUrl: this.config.baseUrl,
       maxItems: this.config.maxItems
@@ -73,7 +80,13 @@ export class FedresursClient {
     logger: Logger,
     requestTimeoutMs: number
   ): Promise<{ html: string; message: FedresursParsedMessage }> {
-    const html = await this.fetchText(detailUrl, logger, requestTimeoutMs, "detail page");
+    const html = await this.fetchText(
+      detailUrl,
+      logger,
+      requestTimeoutMs,
+      "detail page",
+      this.config.searchUrl
+    );
 
     return {
       html,
@@ -109,7 +122,8 @@ export class FedresursClient {
     url: string,
     logger: Logger,
     requestTimeoutMs: number,
-    resourceName: string
+    resourceName: string,
+    referer?: string
   ): Promise<string> {
     return withRetries(
       async () => {
@@ -117,10 +131,10 @@ export class FedresursClient {
         try {
           response = await fetch(url, {
             signal: AbortSignal.timeout(requestTimeoutMs),
-            headers: {
-              accept: "text/html,application/xhtml+xml",
-              "user-agent": this.config.userAgent
-            }
+            headers: buildBrowserLikeHtmlHeaders({
+              userAgent: this.config.userAgent,
+              referer
+            })
           });
         } catch (error) {
           throw describeOutboundHttpError(error, url);
@@ -167,12 +181,11 @@ export class FedresursClient {
             method: init?.method ?? "GET",
             body: init?.body,
             signal: AbortSignal.timeout(requestTimeoutMs),
-            headers: {
-              accept: "application/json",
-              "content-type": init?.body ? "application/json" : undefined,
-              authorization: jwt ? `Bearer ${jwt}` : undefined,
-              "user-agent": this.config.userAgent
-            }
+            headers: buildBrowserLikeJsonHeaders({
+              userAgent: this.config.userAgent,
+              jwt,
+              hasBody: Boolean(init?.body)
+            })
           });
         } catch (error) {
           throw describeOutboundHttpError(error, url);
