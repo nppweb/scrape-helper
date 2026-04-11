@@ -62,7 +62,7 @@ const envSchema = z.object({
     ),
   EASUZ_BASE_URL: z.string().url().default("https://easuz.mosreg.ru"),
   EASUZ_SEARCH_URL: z.string().url().default("https://easuz.mosreg.ru/tenders"),
-  EASUZ_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  EASUZ_MAX_ITEMS: z.coerce.number().int().positive().max(50).default(20),
   EASUZ_USER_AGENT: z
     .string()
     .default("NPPWEB procurement monitor/1.0 (+https://example.local/nppweb)"),
@@ -71,7 +71,7 @@ const envSchema = z.object({
     .string()
     .default("")
     .transform((value) => parseStringList(value, [])),
-  FNS_MAX_ITEMS: z.coerce.number().int().positive().max(10).default(3),
+  FNS_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(10),
   FNS_USER_AGENT: z
     .string()
     .default("NPPWEB procurement monitor/1.0 (+https://example.local/nppweb)"),
@@ -81,7 +81,7 @@ const envSchema = z.object({
     .transform((value) => parseBoolean(value, true)),
   GISTORGI_BASE_URL: z.string().url().default("https://torgi.gov.ru"),
   GISTORGI_SEARCH_URL: z.string().url().default("https://torgi.gov.ru/new/public/lots/search"),
-  GISTORGI_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  GISTORGI_MAX_ITEMS: z.coerce.number().int().positive().max(50).default(20),
   GISTORGI_USER_AGENT: z
     .string()
     .default("NPPWEB procurement monitor/1.0 (+https://example.local/nppweb)"),
@@ -97,7 +97,7 @@ const envSchema = z.object({
     .transform((value) => value?.trim() || undefined),
   FEDRESURS_API_LOOKBACK_DAYS: z.coerce.number().int().positive().max(31).default(31),
   FEDRESURS_SEARCH_URL: z.string().url().default("https://bankrot.fedresurs.ru/Messages.aspx"),
-  FEDRESURS_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  FEDRESURS_MAX_ITEMS: z.coerce.number().int().positive().max(50).default(20),
   FEDRESURS_USER_AGENT: z
     .string()
     .default("NPPWEB procurement monitor/1.0 (+https://example.local/nppweb)"),
@@ -173,7 +173,7 @@ const envSchema = z.object({
       ].join("\n")
     )
     .transform((value) => parseStringList(value, [])),
-  RNP_MAX_ITEMS: z.coerce.number().int().positive().max(20).default(5),
+  RNP_MAX_ITEMS: z.coerce.number().int().positive().max(50).default(20),
   RNP_USER_AGENT: z
     .string()
     .default("NPPWEB procurement monitor/1.0 (+https://example.local/nppweb)"),
