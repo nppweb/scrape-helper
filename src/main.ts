@@ -33,7 +33,8 @@ const runningSources = new Set<string>();
 let running = false;
 let runtimeConfig = {
   schedule: config.SCRAPE_SCHEDULE,
-  autoRunEnabled: true
+  autoRunEnabled: true,
+  enabledSources: adapters.map((adapter) => adapter.code)
 };
 let scheduledTask: ReturnType<typeof cron.schedule> | null = null;
 
@@ -202,7 +203,7 @@ async function bootstrap(): Promise<void> {
     queueQuarantine: config.QUEUE_QUARANTINE_EVENT,
     schedule: runtimeConfig.schedule,
     autoRunEnabled: runtimeConfig.autoRunEnabled,
-    enabledSources: adapters.map((adapter) => adapter.code),
+    enabledSources: runtimeConfig.enabledSources,
     s3Endpoint: config.S3_ENDPOINT,
     s3Bucket: config.S3_BUCKET,
     sharedContractsDir: config.SHARED_CONTRACTS_DIR
@@ -216,10 +217,10 @@ async function bootstrap(): Promise<void> {
     running = true;
     try {
       logger.info(
-        { enabledSources: adapters.map((adapter) => adapter.code), schedule: runtimeConfig.schedule },
+        { enabledSources: runtimeConfig.enabledSources, schedule: runtimeConfig.schedule },
         "scheduled run started"
       );
-      await Promise.allSettled(adapters.map((adapter) => runAdapter(adapter)));
+      await Promise.allSettled(getEnabledAdapters().map((adapter) => runAdapter(adapter)));
     } finally {
       running = false;
     }
@@ -272,7 +273,7 @@ function startControlServer() {
       try {
         const rawBody = await readRequestBody(request);
         const parsed = rawBody.length > 0
-          ? (JSON.parse(rawBody) as { schedule?: string; autoRunEnabled?: boolean })
+          ? (JSON.parse(rawBody) as { schedule?: string; autoRunEnabled?: boolean; enabledSources?: string[] })
           : {};
         const nextConfig = applyRuntimeConfig(parsed);
 
@@ -298,6 +299,7 @@ function startControlServer() {
           running,
           runningSources: Array.from(runningSources).sort(),
           loadedSources: adapters.map((adapter) => adapter.code),
+          enabledSources: runtimeConfig.enabledSources,
           circuitStates: Array.from(circuitState.entries())
             .map(([sourceCode, state]) => ({
               sourceCode,
@@ -339,10 +341,18 @@ async function hydrateRuntimeConfig() {
       throw new Error(`backend returned ${response.status}`);
     }
 
-    const payload = (await response.json()) as { schedule?: string; autoRunEnabled?: boolean };
+    const payload = (await response.json()) as {
+      schedule?: string;
+      autoRunEnabled?: boolean;
+      enabledSources?: string[];
+    };
     applyRuntimeConfig(payload);
     logger.info(
-      { schedule: runtimeConfig.schedule, autoRunEnabled: runtimeConfig.autoRunEnabled },
+      {
+        schedule: runtimeConfig.schedule,
+        autoRunEnabled: runtimeConfig.autoRunEnabled,
+        enabledSources: runtimeConfig.enabledSources
+      },
       "runtime settings loaded from backend"
     );
   } catch (error) {
@@ -394,8 +404,13 @@ async function reportSourceRunState(
   }
 }
 
-function applyRuntimeConfig(nextConfig: { schedule?: string; autoRunEnabled?: boolean }) {
+function applyRuntimeConfig(nextConfig: {
+  schedule?: string;
+  autoRunEnabled?: boolean;
+  enabledSources?: string[];
+}) {
   const schedule = typeof nextConfig.schedule === "string" ? nextConfig.schedule.trim() : runtimeConfig.schedule;
+  const nextEnabledSources = normalizeEnabledSources(nextConfig.enabledSources);
 
   if (!cron.validate(schedule)) {
     throw new Error("Неверное cron-выражение расписания");
@@ -406,7 +421,8 @@ function applyRuntimeConfig(nextConfig: { schedule?: string; autoRunEnabled?: bo
     autoRunEnabled:
       typeof nextConfig.autoRunEnabled === "boolean"
         ? nextConfig.autoRunEnabled
-        : runtimeConfig.autoRunEnabled
+        : runtimeConfig.autoRunEnabled,
+    enabledSources: nextEnabledSources
   };
 
   if (scheduledTask) {
@@ -421,7 +437,11 @@ function applyRuntimeConfig(nextConfig: { schedule?: string; autoRunEnabled?: bo
   }
 
   logger.info(
-    { schedule: runtimeConfig.schedule, autoRunEnabled: runtimeConfig.autoRunEnabled },
+    {
+      schedule: runtimeConfig.schedule,
+      autoRunEnabled: runtimeConfig.autoRunEnabled,
+      enabledSources: runtimeConfig.enabledSources
+    },
     "runtime config applied"
   );
 
@@ -449,7 +469,7 @@ function triggerSourceRuns(sourceCodes?: string[]) {
   const requestedCodes =
     Array.isArray(sourceCodes) && sourceCodes.length > 0
       ? [...new Set(sourceCodes.map((code) => code.trim()).filter(Boolean))]
-      : adapters.map((adapter) => adapter.code);
+      : runtimeConfig.enabledSources;
 
   return requestedCodes.map((sourceCode) => {
     const adapter = adaptersByCode.get(sourceCode);
@@ -460,6 +480,15 @@ function triggerSourceRuns(sourceCodes?: string[]) {
         sourceName: sourceCode,
         accepted: false,
         message: "Источник не включён в ENABLED_SOURCES"
+      };
+    }
+
+    if (!runtimeConfig.enabledSources.includes(sourceCode)) {
+      return {
+        sourceCode,
+        sourceName: adapter.name,
+        accepted: false,
+        message: "Источник отключён в runtime-конфигурации"
       };
     }
 
@@ -490,6 +519,27 @@ function triggerSourceRuns(sourceCodes?: string[]) {
       message: "Ручной запуск отправлен"
     };
   });
+}
+
+function getEnabledAdapters(): SourceAdapter[] {
+  return runtimeConfig.enabledSources
+    .map((sourceCode) => adaptersByCode.get(sourceCode))
+    .filter((adapter): adapter is SourceAdapter => Boolean(adapter));
+}
+
+function normalizeEnabledSources(input: string[] | undefined): string[] {
+  if (!Array.isArray(input)) {
+    return runtimeConfig.enabledSources;
+  }
+
+  const requestedCodes = [...new Set(input.map((code) => code.trim()).filter(Boolean))];
+  const unknownCodes = requestedCodes.filter((code) => !adaptersByCode.has(code));
+
+  if (unknownCodes.length > 0) {
+    throw new Error(`Unknown source codes in runtime configuration: ${unknownCodes.join(", ")}`);
+  }
+
+  return adapters.map((adapter) => adapter.code).filter((code) => requestedCodes.includes(code));
 }
 
 async function connectPublisher(): Promise<void> {
